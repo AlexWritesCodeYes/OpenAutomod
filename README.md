@@ -7,3 +7,5 @@ The features aren't identical to what discord offers (suspected spam messages ar
 If you're hosting this on your own, you'll need to install sqlite3, node.js, and discord.js on your machine. If you're running this on a GNU/Linux device, you might want pm2 to run everything as well.
 
 If you're running this for the first time, run the deploy-commands.js file first.
+
+Once you've got the bot up and running, run the /help command for more information on how to use it.
