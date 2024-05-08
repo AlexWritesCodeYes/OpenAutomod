@@ -223,7 +223,7 @@ module.exports = {
 							message = message + '. Note that admins cannot be timed out.';
 						}
 						else{
-							message = "Raid settings have not been set. run the 'raid' subcommand of this command to configure them.";
+							message = message + "\nRaid settings have not been set. run the 'raid' subcommand of this command to configure them.";
 						}
 
 						return interaction.reply({content: message, ephemeral: false});
