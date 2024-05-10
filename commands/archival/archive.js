@@ -140,7 +140,7 @@ module.exports = {
 				});
 
 				//let messageList = []; //placeholder
-				return interaction.reply({ content: 'Success!', ephemeral: false });
+				return interaction.reply({ content: `Success! ${channelName} was archived in the designated log channel.`, ephemeral: false });
 			})
 		}
 	},

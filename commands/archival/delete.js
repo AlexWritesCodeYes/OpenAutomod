@@ -14,7 +14,7 @@ module.exports = {
 		const channelName = channel.name;
 		if(channelName.slice(0, 7) == "welcome"){
 			channel.delete();
-			return interaction.reply({ content: 'Success!', ephemeral: false });
+			return interaction.reply({ content: `Success! ${channelName} was deleted, and the server template was (hopefully) synced.`, ephemeral: false });
 		}
 		else{
 			return interaction.reply({content: "That's not a welcome channel! Please don't try to do that.", ephemeral: false});
