@@ -1,7 +1,7 @@
 # OpenAutomod
 An alternative to Discord's built-in server automod
 
-This code comprises the source code for a discord bot I wrote whose purpose is to either replicate or entirely replace the features offered by Discord's built-in automod. Discord's automod, while generally reliable, is not easy (and in some places, impossible outright) customize in terms of behavior and features. So, I've written an alternative.
+This code comprises the source code for a discord bot I wrote whose purpose is to either replicate or entirely replace the features offered by Discord's built-in automod. Discord's automod, while generally reliable, is not easy (and in some places, impossible outright) to customize in terms of behavior and features. So, I've written an alternative.
 
 The features aren't identical to what discord offers (suspected spam messages are defined by repetition rather than length, for example), but are much more robust and easier to customize.
 
