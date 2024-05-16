@@ -33,6 +33,25 @@ const NameBlock = sequelize.define('nameblock', {
 	blackwhite: Sequelize.TINYINT,
 	regex: Sequelize.TINYINT,
 });
+//\*.bepis*.
+function specialCharHandler(entry, currIndex){
+	var result = entry;
+	for(let i = currIndex; i < entry.length; i++){
+		if(i == 0){
+			if(entry[i] === "*" || entry[i] === "_"){
+				result = "\\" + entry;
+			}
+		}
+		else{
+			if((entry[i] === "*" || entry[i] === "_") && entry[i-1] != "\\"){ 
+				result = result.slice(0, i) + "\\" + result.slice(i);
+				specialCharHandler(result, i);
+			}
+		}
+	}
+
+	return result;
+}
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -111,7 +130,8 @@ module.exports = {
 					messages.push(message);
 					message = "blacklist: \n----------\n";
 					blacklist.forEach(entry => {
-						let messageAddition = "entry: " + entry.entry + " | regex: " + (entry.regex == 1) + "\n-----\n";
+						let entryEntry = specialCharHandler(entry.entry, 0);
+						let messageAddition = "entry: ||" + entryEntry + "|| | regex: " + (entry.regex == 1) + "\n-----\n";
 						if((message.length + messageAddition.length) >= 2000){
 							messages.push(message);
 							message = "";
@@ -121,7 +141,8 @@ module.exports = {
 					messages.push(message);
 					message = "whitelist: \n----------\n";
 					whitelist.forEach(entry => {
-						let messageAddition = "entry: " + entry.entry + " | regex: " + (entry.regex == 1) + "\n-----\n";
+						let entryEntry = specialCharHandler(entry.entry, 0);
+						let messageAddition = "entry: ||" + entryEntry + "|| | regex: " + (entry.regex == 1) + "\n-----\n";
 						if((message.length + messageAddition.length) >= 2000){
 							messages.push(message);
 							message = "";
