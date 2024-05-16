@@ -33,7 +33,7 @@ const NameBlock = sequelize.define('nameblock', {
 	blackwhite: Sequelize.TINYINT,
 	regex: Sequelize.TINYINT,
 });
-//\*.bepis*.
+
 function specialCharHandler(entry, currIndex){
 	var result = entry;
 	for(let i = currIndex; i < entry.length; i++){
