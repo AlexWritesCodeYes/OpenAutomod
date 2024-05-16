@@ -27,6 +27,25 @@ const NameBlockSettings = sequelize.define('nameblocksettings', {
 	timeout: Sequelize.INTEGER,
 });
 
+function specialCharHandler(entry, currIndex){
+	var result = entry;
+	for(let i = currIndex; i < entry.length; i++){
+		if(i == 0){
+			if(entry[i] === "*" || entry[i] === "_"){
+				result = "\\" + entry;
+			}
+		}
+		else{
+			if((entry[i] === "*" || entry[i] === "_") && entry[i-1] != "\\"){ 
+				result = result.slice(0, i) + "\\" + result.slice(i);
+				specialCharHandler(result, i);
+			}
+		}
+	}
+
+	return result;
+}
+
 module.exports = {
 	data: new SlashCommandBuilder()
 	.setName('managenameslist')
@@ -119,6 +138,7 @@ module.exports = {
 		}
 		else{
 			const entry = interaction.options.getString('entry');
+			let formattedEntry = specialCharHandler(entry, 0);
 
 			if(subCommand == 'add'){
 				const blackwhite = interaction.options.getString('blackwhite');
@@ -134,11 +154,11 @@ module.exports = {
 						regex: regexVal,
 					});
 					NameBlock.sync();
-					
-					return interaction.reply({content: `||${entry}|| was added to the names ${blackwhite}list`, ephemeral: false});
+
+					return interaction.reply({content: `||${formattedEntry}|| was added to the names ${blackwhite}list`, ephemeral: false});
 				}
 				catch(error){
-					return interaction.reply({content: `Something went wrong with adding ||${entry}|| to the ${blackwhite}list: ${error}.`, ephemeral: false});
+					return interaction.reply({content: `Something went wrong with adding ||${formattedEntry}|| to the ${blackwhite}list: ${error}.`, ephemeral: false});
 				}
 			}
 			else{
@@ -148,7 +168,7 @@ module.exports = {
 					rowCount = NameBlock.destroy({where: {entry: entry} });
 					NameBlock.sync();
 
-					message = `||${entry}|| was deleted from the name block database.`;
+					message = `||${formattedEntry}|| was deleted from the name block database.`;
 
 					rowCount.then(rc => {
 						if(rc){
@@ -163,7 +183,7 @@ module.exports = {
 				else if(subCommand == 'move'){
 					let dbEntry = NameBlock.findOne({where: {entry: entry}});
 					if(!dbEntry){
-						return interaction.reply({content: `${entry} was not found in the name blocker database.`, ephemeral: false});
+						return interaction.reply({content: `${formattedEntry} was not found in the name blocker database.`, ephemeral: false});
 					}
 					let bwVal = 0;
 					bwNewVal = 1;
@@ -179,7 +199,7 @@ module.exports = {
 						rowCount = NameBlock.update({blackwhite: bwNewVal}, {where: {entry: entry}});
 						NameBlock.sync();
 
-						message = `||${entry}|| was moved from the ${bwText}list to the ${bwNewText}list in the name block database.`;
+						message = `||${formattedEntry}|| was moved from the ${bwText}list to the ${bwNewText}list in the name block database.`;
 
 						rowCount.then(rc => {
 							if(rc[0] > 0){
