@@ -26,14 +26,12 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 	storage: 'database.sqlite',
 });
 
-//the list of word-response pairs
-const Words = sequelize.define('words', {
-	word: {
-		type: Sequelize.STRING,
-		unique: true,
-	},
-	response: Sequelize.TEXT,
-});
+class PhrasePair{
+	constructor(phrase, regex){
+		this.phrase = phrase;
+		this.regex = regex;
+	}
+}
 
 //more robust version of the word-response pair thing
 const Phrases = sequelize.define('phrases', {
@@ -49,6 +47,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
+	regex: Sequelize.INTEGER,
 });
 
 //currently only keeps track of the log channel
@@ -348,7 +347,8 @@ client.on(Events.InteractionCreate, async interaction => {
 		Phrases.findAll().then(phrases => {
 			console.log(`${phrases.length} phrases in the db`);
 			phrases.forEach(entry => {
-				badPhrases.add(entry.phrase);
+				var newPair = new PhrasePair(entry.phrase, entry.regex);
+				badPhrases.add(newPair);
 			})
 		})
 	}
@@ -878,7 +878,8 @@ client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 })
 
 //checks if a given phrase exists in a list of words
-function phraseFinder(wordList, phrase){
+function phraseFinder(wordList, phrasepair){
+	const phrase = phrasepair.phrase;
 	let splitphrase = phrase.split(' ');
 	const phraseLength = splitphrase.length;
 	if(phraseLength > 1){
@@ -887,17 +888,29 @@ function phraseFinder(wordList, phrase){
 
 		let foundit = false;
 		while(lastIndex < wordList.length){
-			if(wordList[firstIndex] == splitphrase[0]){
-				let breakCondition = false;
-				for(let i = 1; i < phraseLength; i++){
-					if(wordList[firstIndex + i] != splitphrase[i]){
-						breakCondition = true;
-					}
-					if(breakCondition){ break; }
-				}
-				if(!breakCondition){
-					console.log("Found the phrase! The first word is at index " + firstIndex);
+			if(phrasepair.regex == 1){
+				console.log("regex");
+				const regexPhrase = new RegExp(phrase);
+				if(regexPhrase.test(wordList[firstIndex])){
 					foundit = true;
+					console.log("Found the phrase at index " + firstIndex);
+					break;
+				}
+			}
+			else{
+				console.log(phrasepair.regex);
+				if(wordList[firstIndex] == splitphrase[0]){
+					let breakCondition = false;
+					for(let i = 1; i < phraseLength; i++){
+						if(wordList[firstIndex + i] != splitphrase[i]){
+							breakCondition = true;
+						}
+						if(breakCondition){ break; }
+					}
+					if(!breakCondition){
+						console.log("Found the phrase! The first word is at index " + firstIndex);
+						foundit = true;
+					}
 				}
 			}
 			
@@ -913,7 +926,19 @@ function phraseFinder(wordList, phrase){
 		}
 	}
 	else{
-		return wordList.includes(phrase);
+		if(phrasepair.regex == 1){
+			const regexPhrase = new RegExp(phrase);
+			var foundit = false;
+			wordList.forEach(word => {
+				if(regexPhrase.test(word)){
+					foundit = true;
+				}
+			});
+			return foundit;
+		}
+		else{
+			return wordList.includes(phrase);
+		}
 	}
 }
 
@@ -928,14 +953,14 @@ client.on(Events.MessageCreate, message => {
 			let badphrases = [...badPhrases];
 
 			let foundBadPhrases = new Set();
-			for(let phrase of badphrases){
-				if(phraseFinder(splitup, phrase)){
+			for(let phrasepair of badphrases){
+				if(phraseFinder(splitup, phrasepair)){
 					console.log("Found a bad phrase!");
 
-					const respondTo = Phrases.findOne({where: {phrase: phrase} });
+					const respondTo = Phrases.findOne({where: {phrase: phrasepair.phrase} });
 
 					respondTo.then(entry => {
-						let logMessage = `A user posted the word or phrase ||${entry.phrase}|| in ${message.channel}.`;
+						let logMessage = `A user posted the word, phrase, or regex ||${entry.phrase}|| in ${message.channel}.`;
 						let reply = entry.response;
 
 						if(reply != null && reply.length > 0){
@@ -1248,7 +1273,7 @@ client.once(Events.ClientReady, c => {
 	badPhrases = new Set();
 	Phrases.findAll().then(phrases => {
 		phrases.forEach(phrase => {
-			badPhrases.add(phrase.phrase);
+			badPhrases.add(new PhrasePair(phrase.phrase, phrase.regex));
 		})
 	})
 	mentionMessages = [];
