@@ -47,7 +47,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.INTEGER,
+	regex: Sequelize.TINYINT,
 });
 
 //currently only keeps track of the log channel
