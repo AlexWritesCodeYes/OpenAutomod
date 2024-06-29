@@ -22,6 +22,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
+	regex: Sequelize.INTEGER,
 });
 
 module.exports = {
@@ -31,6 +32,10 @@ module.exports = {
 		.addStringOption(option => 
 			option.setName('phrase')
 				.setDescription('The phrase to add')
+				.setRequired(true))
+		.addBooleanOption(option =>
+			option.setName('regex')
+				.setDescription('Is this a regex string?')
 				.setRequired(true))
 		.addStringOption(option =>
 			option.setName('response')
@@ -55,6 +60,7 @@ module.exports = {
 			const wordResponse = interaction.options.getString('response');
 			const deletion = interaction.options.getBoolean('delete');
 			const timeout = interaction.options.getString('timeout');
+			const regex = interaction.options.getBoolean('regex');
 
 			let deleteVal = 0;
 			if(deletion == true){ deleteVal = 1; }
@@ -70,12 +76,18 @@ module.exports = {
 				timeoutVal = 24 * 60 * 60 * 1000;
 			}
 
+			let regexVal = 0;
+			if(regex){
+				regexVal = 1;
+			}
+
 			try{
 				Phrases.create({
 					phrase: badPhrase,
 					response: wordResponse,
 					delete: deleteVal,
 					timeout: timeoutVal,
+					regex: regexVal,
 				});
 				Phrases.sync();
 

@@ -22,6 +22,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
+	regex: Sequelize.INTEGER,
 });
 
 module.exports = {
@@ -42,7 +43,15 @@ module.exports = {
 					Phrases.sync({force: true}); //recreates the table, resetting the id
 				}
 				list.forEach(entry => {
-					message = message + entry.id + ") phrase: ||" + entry.phrase + "|| | reply: ";
+					message = message + entry.id + ") ";
+					if(entry.regex == 1){
+						message = message + "regex: ||" + entry.phrase + "|| | reply: ";
+					}
+					else{
+						console.log(entry.regex);
+						message = message + "phrase: ||" + entry.phrase + "|| | reply: ";
+					}
+					
 					let reply = entry.response;
 					if(reply == null || reply.length == 0){
 						message = message + "N/A";

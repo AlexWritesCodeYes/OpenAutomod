@@ -22,6 +22,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
+	regex: Sequelize.INTEGER,
 });
 
 module.exports = {

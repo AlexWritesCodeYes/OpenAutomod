@@ -22,6 +22,7 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
+	regex: Sequelize.INTEGER,
 });
 
 module.exports = {
@@ -70,8 +71,15 @@ module.exports = {
 				let reply = entry.response;
 				let deleteThis = entry.delete;
 				let timeoutUser = entry.timeout;
+				let regexVal = entry.regex;
 
-				let message = `phrase: ||${phrase}|| \nreply: ${reply} \n`;
+				var message;
+				if(regexVal == 1){
+					message = `regex: ||${phrase}|| \nreply: ${reply} \n`;
+				}
+				else{
+					message = `phrase: ||${phrase}|| \nreply: ${reply} \n`;
+				}
 				message = message + "response: ";
 				
 				if(deleteThis == 0){
