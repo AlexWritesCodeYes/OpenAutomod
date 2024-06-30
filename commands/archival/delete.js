@@ -1,4 +1,4 @@
-const { ChannelType, SlashCommandBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -12,9 +12,23 @@ module.exports = {
 	execute(interaction){
 		const channel = interaction.options.getChannel('channel');
 		const channelName = channel.name;
+
+		var yesCustomId = "yes_button-" + channel.id.toString(); //this is such a stupid hack
+		var cancelCustomId = "cancel_button-" + channel.id.toString();
 		if(channelName.slice(0, 7) == "welcome"){
-			channel.delete();
-			return interaction.reply({ content: `Success! ${channelName} was deleted, and the server template was (hopefully) synced.`, ephemeral: false });
+			let buttons = new ActionRowBuilder();
+			buttons.addComponents(
+				new ButtonBuilder()
+					.setCustomId(yesCustomId) //seriously this is dumb
+					.setStyle(ButtonStyle.Success)
+					.setLabel('Yes'),
+				new ButtonBuilder()
+					.setCustomId(cancelCustomId)
+					.setStyle(ButtonStyle.Danger)
+					.setLabel('Cancel'),
+			);
+			return interaction.reply({ content: `Are you sure you want to delete #${channelName}?`, components: [buttons], ephemeral:false });
+
 		}
 		else{
 			return interaction.reply({content: "That's not a welcome channel! Please don't try to do that.", ephemeral: false});
