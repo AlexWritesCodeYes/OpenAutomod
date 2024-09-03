@@ -157,6 +157,14 @@ const Welcome = sequelize.define('welcome', {
 	onoff: Sequelize.TINYINT,
 });
 
+const Archived = sequelize.define('archived', { //database of archived channels
+	channelID: {											   //double check this database before allowing /delete
+		type: Sequelize.TEXT,
+		unique: true,
+	},
+	name: Sequelize.STRING,
+});
+
 for (const folder of commandFolders) {
 	const commandsPath = path.join(foldersPath, folder);
 	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -1290,6 +1298,7 @@ client.once(Events.ClientReady, c => {
 	Template.sync();
 	MessageDatabase.sync();
 	Welcome.sync();
+	Archived.sync();
 	
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
