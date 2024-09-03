@@ -17,17 +17,29 @@ const Channels = sequelize.define('channels', {
 	channelID: Sequelize.TEXT,
 });
 
+const Archived = sequelize.define('archived', { //database of archived channels
+	channelID: {											   //double check this database before allowing /delete
+		type: Sequelize.TEXT,
+		unique: true,
+	},
+	name: Sequelize.STRING,
+});
+
 function formatDate(dateString){
 	dateString = dateString + "";
 	return dateString.split('G')[0];
 }
 
 async function grabMany(channel, options, msgList){
+	//let messageList = [];
 	let lastID = options.before;
+	//let limit = 101;
+	//let counter = 99;
 	let breakCondition = false;
 	do{
 		if(typeof lastID != `undefined`){
 			options = { limit: 100, before: lastID};
+			//console.log(lastID);
 			channel.messages.fetch(options).then(messages => {
 				console.log(`grabbed ${messages.size} messages before ${options.before}`);
 			})
@@ -37,6 +49,7 @@ async function grabMany(channel, options, msgList){
 		}
 
 		const channelMessages = await channel.messages.fetch(options);
+		//console.log(`I GOT ${channelMessages.size} MESSAGES`);
 
 		let myMessageList = [];
 
@@ -67,6 +80,7 @@ async function grabMany(channel, options, msgList){
 		}
 		else{
 			const newMessages = await grabMany(channel, options, myMessageList);
+			//console.log(`newMessages: ${newMessages}`);
 			
 			newMessages.forEach(msg => {
 				myMessageList.push(msg);
@@ -75,10 +89,12 @@ async function grabMany(channel, options, msgList){
 			console.log(`total length: ${myMessageList.length}`);
 			if(newMessages.length < 100){
 				console.log(`returning ${myMessageList.length} messages`);
-
+				//counter = limit;
 				return myMessageList;
 			}
 		}
+		
+		//counter = counter + 1;
 	} while(true);
 }
 
@@ -94,6 +110,7 @@ module.exports = {
 	execute(interaction){
 		const channel = interaction.options.getChannel('channel');
 		const channelName = channel.name;
+		const channelID = channel.id;
 		if(channelName.slice(0, 7) != "welcome"){
 			return interaction.reply({ content: `${channelName} is not a welcome channel. Please do not do that.`,
 			 ephemeral: false });
@@ -106,8 +123,6 @@ module.exports = {
 				
 				let msgList = [];
 				msgList = grabMany(channel, {limit: 100}, msgList);
-
-				//console.log(`msgList: ${msgList}`);
 
 				msgList.then(messageList => {
 					console.log(channel.name);
@@ -128,6 +143,21 @@ module.exports = {
 					let tooMany = 100;
 					if(messageList.length > tooMany){
 						logChannel.send(`${messageList.length} is a lot of messages! In the future, please try to keep conversation in the welcome channels to fewer than ${tooMany} messages`);
+					}
+				});
+
+				Archived.findOne({where: {channelID: channelID}}).then(ach => {
+					if(!ach){
+						try{
+							Archived.create({
+								channelID: channelID,
+								name: channelName,
+							});
+							Channels.sync();
+						}
+						catch(error){
+							console.log(error);
+						}
 					}
 				});
 
