@@ -84,7 +84,7 @@ module.exports = {
 			}
 
 			const affectedRows = Welcome.update({onoff: onoff}, {where: {category: "standard"} });
-			Welcome.sync(); //this syncs the database, not the template itself
+			Welcome.sync();
 
 			let message = "The creation of welcome channels upon a new user joining is now " + subCommand + "d.";
 			affectedRows.then(rows => {
@@ -95,7 +95,7 @@ module.exports = {
 					try{
 						Welcome.create({
 							category: "standard",
-							onoff: onoff,
+							onoff: onoff.toString(),
 						});
 						Welcome.sync();
 					}
@@ -108,5 +108,5 @@ module.exports = {
 				}
 			})
 		}
-	}
-}
+	},
+};
