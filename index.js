@@ -1,4 +1,4 @@
-const {ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, Collection, Events, EmbedBuilder, GatewayIntentBits, InteractionType, Partials, PermissionsBitField} = require("discord.js");
+const {Client, Collection, Events, EmbedBuilder, ChannelType, Partials, PermissionsBitField, GatewayIntentBits} = require("discord.js");
 const {token} = require('./config.json');
 const Sequelize = require('sequelize');
 const fs = require('node:fs');
@@ -26,13 +26,6 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 	storage: 'database.sqlite',
 });
 
-class PhrasePair{
-	constructor(phrase, regex){
-		this.phrase = phrase;
-		this.regex = regex;
-	}
-}
-
 //more robust version of the word-response pair thing
 const Phrases = sequelize.define('phrases', {
 	id: {
@@ -47,10 +40,8 @@ const Phrases = sequelize.define('phrases', {
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
-//currently only keeps track of the log channel
 const Channels = sequelize.define('channels', {
 	name: {
 		type: Sequelize.STRING,
@@ -157,12 +148,30 @@ const Welcome = sequelize.define('welcome', {
 	onoff: Sequelize.TINYINT,
 });
 
-const Archived = sequelize.define('archived', { //database of archived channels
-	channelID: {											   //double check this database before allowing /delete
+const Roles = sequelize.define('roles', {
+	name: {
 		type: Sequelize.TEXT,
 		unique: true,
 	},
-	name: Sequelize.STRING,
+	roleID: Sequelize.TEXT,
+	roleName: Sequelize.TEXT,
+});
+
+const Introping = sequelize.define('introping', {
+	category: {
+		type: Sequelize.STRING,
+		unique: true,
+	},
+	onoff: Sequelize.TINYINT,
+});
+
+//when a user posts an introduction for the first time, they are added to this database
+//when a user is granted the role admitting them to the rest of the server, they will need to be programmatically cleared from this database
+const IntroMade = sequelize.define('introduced', {
+	userID: {
+		type: Sequelize.TEXT,
+		unique: true,
+	}
 });
 
 for (const folder of commandFolders) {
@@ -185,7 +194,7 @@ helpEmbed = new EmbedBuilder()
 	.setDescription("Click on the reactions corresponding to the following categories to access their submenus")
 	.addFields(
 		{ name: "__⚙️: Config__", value: "The commands for configuring various automation settings", inline: false},
-		{ name: "__👋: Welcome__", value: "The commands for handling the welcome channels", inline: false},
+		{ name: "__👋: Welcome__", value: "The commands for handling the welcome channels and other onboarding stuff", inline: false},
 		{name: "__↔️: Responses__", value: "The commands for handling the phrase-response system", inline: false},
 		{name: "__💢: Spam__", value: "The commands for configuring the automated spam protection settings", inline: false},
 		{name: "__📜: Names__", value: "The commands for configuring the automated name blocker settings", inline: false},
@@ -198,6 +207,9 @@ configEmbed = new EmbedBuilder()
 	.setDescription("Configuration commands for various automated features. Mainly managing channel exclusion lists, the server template, and the log channel")
 	.addFields(
 		{name: "/logchannel", value: "changes the channel to which this bot logs events", inline: false},
+		{name: "/introchannel", value: "changes which channel is set as the introduction channel (for the introduction notification system)", inline: false},
+		{name: "/modchannel", value: "changes which channel is set as the mod chat channel (for the introduction notification system)", inline: false},
+		{name: "/modrole", value: "changes which role is set as the moderator role (to be pinged for the introduction notification system)", inline: false},
 		{name: "/exclude", value: "adds a channel to one or several of the feature exlusion lists. If a channel is on, for example, the mention exlusion list, then the mention spam protection feature will not work in that channel, even if that feature is turned on for the server.", inline: false},
 		{name: "/include", value: "the opposite of /exclude. This command removes a given channel from all exclusion lists it's on. The bot features will now work normally in the given channel.", inline: false},
 		{name: "/update", value: "updates exclusion list(s) of the given channel. This command can be used to move a channel onto or off of one or several feature exlusion lists.", inline: false},
@@ -210,11 +222,13 @@ configEmbed = new EmbedBuilder()
 welcomeEmbed = new EmbedBuilder()
 	.setColor("#7F8C8D")
 	.setTitle("Welcome Channel Help Menu")
-	.setDescription("When a new person joins the server, a secret welcome channel that only they (and the mods) can see. The following commands manage those channels.")
+	.setDescription("When a new person joins the server, a secret welcome channel that only they (and the mods) can see. The following commands manage those channels, as well as the notification system for when a new user introduces themselves")
 	.addFields(
 		{name: "/archive", value: "logs all messages in a given welcome channel to the log channel for this bot. **Run this command __before__ the /delete command.**", inline: false},
 		{name: "/delete", value: "deletes a welcome channel. this command, for safety reasons, only works on welcome channels.", inline: false},
 		{name: "/welcome", value: "enables or disables the creation of welcome channels upon a user joining, or gets the current configuration for this setting.", inline: false},
+		{name: "/entryrole", value: "gets or sets the role that grants full access to the server as a whole. This is part of the introduction notification system", inline: false},
+		{name: "/intronotify", value: "enables, disables, or gets the current settings of the new user intro notification system. When this is on, moderators will be notified when a new introduction is made.", inline: false},
 	)
 	.setFooter({text: 'Return to the main menu by clicking the ◀️ below'});
 
@@ -284,12 +298,17 @@ commandsEmbed = new EmbedBuilder()
 		{name: "/blacklist", value: "⚙️ Config", inline: true},
 		{name: "/delete", value: "👋 Welcome", inline: true},
 		{name: "/delphrase", value: "↔️ Responses", inline: true},
+		{name: "/entryrole", value: "👋 Welcome", inline: true},
 		{name: "/exclude", value: "⚙️ Config", inline: true},
 		{name: "/fullresponse", value: "↔️ Responses", inline: true},
 		{name: "/help", value: "⚙️ Config", inline: true},
 		{name: "/include", value: "⚙️ Config", inline: true},
+		{name: "/introchannel", value: "⚙️ Config", inline: true},
+		{name: "/intronotify", value: "👋 Welcome", inline: true},
 		{name: "/listphrases", value: "↔️ Responses", inline: true},
 		{name: "/logchannel", value: "⚙️ Config", inline: true},
+		{name: "/modchannel", value: "⚙️ Config", inline: true},
+		{name: "/modrole", value: "⚙️ Config", inline: true},
 		{name: "/managehost", value: "💢 Spam", inline: true},
 		{name: "/managenameslist", value: "📜 Names", inline: true},
 		{name: "/mentionconfig", value: "💢 Spam", inline: true},
@@ -297,9 +316,10 @@ commandsEmbed = new EmbedBuilder()
 		{name: "/namesbypass", value: "📜 Names", inline: true},
 		{name: "/suspectedconfig", value: "💢 Spam", inline: true},
 		{name: "/template", value: "⚙️ Config", inline: true},
-		{name: "/update", value: "⚙️ Config"}
+		{name: "/update", value: "⚙️ Config", inline: true},
+		{name: "/welcome", value: "👋 Welcome"}
 	)
-	.setFooter({text: 'Run the help command to find out more about these commands'});
+	.setFooter({text: 'Run the /help command to find out more about these commands'});
 
 let badPhrases = new Set();
 let badHosts = new Set();
@@ -310,17 +330,23 @@ let namesBlackList = new Set();
 let namesWhiteList = new Set();
 let namesAllowListRoles = new Set();
 let namesAllowListMembers = new Set();
+let introsMadeIDSet = new Set();
 
 var stdMentionSpamOnOff;
 var raidMentionSpamOnOff;
 var stdSusSpamOnOff;
 var linkSusSpamOnOff;
+var intropingOnOff;
+var introChannelID;
+var modChannelID;
+var entryRoleID;
+var modRoleID;
 var mentionMessages = [];
 var susMessages = [];
 var prevMsg;
 
 client.on(Events.InteractionCreate, async interaction => {
-	if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
+	if (!interaction.isChatInputCommand()) return;
 
 	const cmdUser = interaction.member;
 	if(!cmdUser.permissions.has(PermissionsBitField.Flags.Administrator)){
@@ -328,344 +354,353 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 
 	console.log(interaction);
-	if(interaction.isButton()){
-		if(interaction.customId.toString().slice(0, 11) === 'yes_button-'){
-			const channelID = interaction.customId.toString().slice(11); //embedding the channel id in the interaction id is a stupid hack
-			const channel = client.channels.cache.get(channelID);		//but it works! tm
-			const channelName = channel.name;
+	Channels.findOne({where: {name: "log"} }).then(logchannel => {
+		let logChannelID = logchannel.channelID;
+		client.channels.cache.get(logChannelID).send("Received an interaction: " + interaction.commandName);
+	})
 
-			channel.delete();
-			interaction.reply({ content: `Success! ${channelName} was deleted, and the server template was (hopefully) synced.`, fetchReply: true, ephemeral: false }).then((message) => {
-				replyID = message.reference.messageId;
-				console.log("reply ID: " + replyID);
+	const command = client.commands.get(interaction.commandName);
+	const cmdName = interaction.commandName;
 
-				interaction.channel.messages.fetch(replyID).then(msg => {
-					msg.delete();
-				});
-			});
-			
-			//return interaction.message.delete();
-		}
-		else if(interaction.customId.toString().slice(0, 14) === 'cancel_button-'){
-			const channelID = interaction.customId.toString().slice(14); //embedding the channel id in the interaction id is a stupid hack
-			const channel = client.channels.cache.get(channelID);		//but it works! tm
-
-			interaction.reply({ content: 'Cancelled', fetchReply: true, ephemeral: true }).then((message) => {
-				replyID = message.reference.messageId;
-				console.log("reply ID: " + replyID);
-
-				interaction.channel.messages.fetch(replyID.toString()).then(msg => {
-					msg.delete();
-				});
-			});
-			//return interaction.message.delete();
-		}
-		else{
-			return interaction.reply({ content: 'Error: unknown button ID', ephemeral: true });
-		}
-
+	if (!command) {
+		console.error(`No command matching ${interaction.commandName} was found.`);
+		return;
 	}
-	else{
-		const command = client.commands.get(interaction.commandName);
-		const cmdName = interaction.commandName;
 
-		if (!command) {
-			console.error(`No command matching ${interaction.commandName} was found.`);
-			return;
-		}
+	if(cmdName == 'welcome'){
+		console.log("Syncing welcome settings db");
+		Welcome.sync();
+	}
 
-		Channels.findOne({where: {name: "log"} }).then(logchannel => {
-			let logChannelID = logchannel.channelID;
-			client.channels.cache.get(logChannelID).send("Received an interaction: " + interaction.commandName + " from: " + cmdUser.displayName);
-		})
-
-		if(cmdName == 'welcome'){
-			console.log("Syncing welcome settings db");
-			Welcome.sync();
-		}
-
-		if(cmdName == "addphrase" || cmdName == "modphrase" || cmdName == "delphrase"){
-			console.log("Syncing phrases db");
-			Phrases.sync();
-
-			console.log("updating local phrases list");
-			badPhrases = new Set();
-			Phrases.findAll().then(phrases => {
-				console.log(`${phrases.length} phrases in the db`);
-				phrases.forEach(entry => {
-					var newPair = new PhrasePair(entry.phrase, entry.regex);
-					badPhrases.add(newPair);
-				})
-			})
-		}
-
-		if(cmdName == "exclude" || cmdName == "include" || cmdName == "update"){
-			console.log("Syncing blacklist tables");
-			Blacklist.sync();
-
-			console.log("updating local blacklists");
-			phrasesBlackList = new Set();
-			mentionBlackList = new Set();
-			spamBlackList = new Set();
-			Blacklist.findAll().then(entries => {
-				entries.forEach(entry => {
-					let categories = entry.category.split(' ');
-					if(categories.includes('phrases')){
-						phrasesBlackList.add(entry.channelID);
-					}
-					if(categories.includes('mention')){
-						mentionBlackList.add(entry.channelID);
-					}
-					if(categories.includes('spam')){
-						spamBlacklist.add(entry.channelID);
-					}
-				})
-			})
-		}
-
-		if(cmdName == 'mentionconfig'){
-			console.log("Syncing mention spam settings db");
-			MentionSpamSettings.sync();
-
-			const stdSettings = MentionSpamSettings.findOne({where: {category: 'standard'}});
-			const raidSettings = MentionSpamSettings.findOne({where: {category: 'raid'}});
-
-			stdSettings.then(settings => {
-				if(settings.onoff == null || settings.onoff == 0){
-					stdMentionSpamOnOff = false;
-				}
-				else{
-					stdMentionSpamOnOff = true;
-				}
-			});
-
-			raidSettings.then(settings => {
-				if(settings.onoff == null || settings.onoff == 0){
-					raidMentionSpamOnOff = false;
-				}
-				else{
-					raidMentionSpamOnOff = true;
-				}
-			})
-		}
-
-		if(cmdName == 'suspectedconfig'){
-			console.log('Syncing suspected spam settings db');
-			SuspectedSpamSettings.sync();
-
-			const stdSettings = SuspectedSpamSettings.findOne({where: {category: 'standard'}});
-			const linkSettings = SuspectedSpamSettings.findOne({where: {category: 'link'}});
-
-			stdSettings.then(settings => {
-				if(settings.onoff == null || settings.onoff == 0){
-					stdSusSpamOnOff = false;
-				}
-				else{
-					stdSusSpamOnOff = true;
-				}
-			});
-
-			linkSettings.then(settings => {
-				if(settings.onoff == null || settings.onoff == 0){
-					linkSusSpamOnOff = false;
-				}
-				else{
-					linkSusSpamOnOff = true;
-				}
-			})
-		}
-
-		if(cmdName == 'managehost'){
-			console.log('Syncing host spam protection db');
-			LinkBlacklist.sync();
-
-			badHosts = new Set();
-			LinkBlacklist.findAll().then(entries => {
-				entries.forEach(entry => {
-					if(entry.onoff == 1){
-						badHosts.add(entry.host);
-					}
-				})
-			})
-		}
-
-		if(cmdName == 'managenameslist'){
-			console.log('Syncing name block databases');
-			NameBlock.sync();
-			NameBlockSettings.sync();
-
-			namesBlackList = new Set();
-			namesWhiteList = new Set();
-			NameBlock.findAll().then(entries => {
-				entries.forEach(entry => {
-					if(entry.blackwhite == 1){
-						namesBlackList.add(entry); //have to add as an entry due to regex check
-					}
-					else{
-						namesWhiteList.add(entry);
-					}
-				})
-			})
-		}
-		if(cmdName == 'namesbypass'){
-			console.log('Synching name block bypass db');
-			AllowList.sync();
-
-			namesAllowListRoles = new Set();
-			namesAllowListMembers = new Set();
-			AllowList.findAll().then(entries => {
-				entries.forEach(entry => {
-					if(entry.roleuser == 1){
-						namesAllowListRoles.add(entry.entry); //id
-					}
-					else{
-						namesAllowListMembers.add(entry.entry);
-					}
-				})
-			})
-		}
-
-		if(cmdName == 'template'){
-			console.log('Synching template db');
-			Template.sync();
-		}
-
-		if(cmdName == "help"){
-			console.log('Synching messages db');
-			MessageDatabase.sync();
-			let theChannel = interaction.channel;
-			let embedMsg = theChannel.send({embeds: [helpEmbed]}).then(embedMessage => {
-				const configReact = embedMessage.react("⚙️");
-				const welcomeReact = embedMessage.react("👋");
-				const responseReact = embedMessage.react("↔️");
-				const spamReact = embedMessage.react("💢");
-				const namesReact = embedMessage.react("📜");
-
-				//store the message id in a database or something i dunno
-				const helpMsgEntry = MessageDatabase.findOne({where: {category: 'help'}}).then(entry => {
-					if(entry){
-						//delete the old message and update the db entry with the id of the new one
-						console.log("deleting old help menu message");
-						const helpMessageChannel = interaction.guild.channels.fetch(entry.channelID);
-						helpMessageChannel.then(channel => {
-							//TODO: error check this
-							let msg = channel.messages.fetch(entry.messageID);
-							msg.then(msgToDelete => {
-								msgToDelete.delete();
-							})
-						})
-
-						console.log("updating the help message ID in the database");
-						const affectedRows = MessageDatabase.update({messageID: embedMessage.id.toString(), channelID: theChannel.id.toString()}, {where: {category: 'help'}});
-						MessageDatabase.sync();
-
-						affectedRows.then(rows => {
-							if(rows[0] > 0){
-								console.log("succesfully updated the help message ID in the database");
-							}
-							else{
-								Channels.findOne({where: {name: "log"} }).then(logchannel => {
-									let logChannelID = logchannel.channelID;
-									client.channels.cache.get(logChannelID).send("Failed to update the help message ID in the database. The old help menu will remain, and the buttons will be non-functional");
-								})
-							}
-						})
-					}
-					else{
-						//there is no help message id in the database. try to create an entry
-						console.log("trying to store " + embedMessage.id);
-						try{
-							MessageDatabase.create({
-								category: 'help',
-								messageID: embedMessage.id.toString(),
-								channelID: theChannel.id.toString(),
-							});
-							MessageDatabase.sync();
-						}
-						catch(error){
-							Channels.findOne({where: {name: "log"} }).then(logchannel => {
-								let logChannelID = logchannel.channelID;
-								client.channels.cache.get(logChannelID).send(`Failed to create the help message ID in the database. Here's the error: ${error}`);
-							})
-						}
-					}
-				})
-			})
-			const test = MessageDatabase.findOne({where: {category: 'help'}});
-			test.then(testtest => {
-				console.log("stored " + testtest.messageID);
-			})
-		}
-
-		if(cmdName == "masterlist"){
-			console.log('Synching messages db');
-			MessageDatabase.sync();
-			let theChannel = interaction.channel;
-			let embedMsg = theChannel.send({embeds: [commandsEmbed]}).then(embedMessage => {
-				const commandMsgEntry = MessageDatabase.findOne({where: {category: 'commands'}}).then(entry => {
-					if(entry){
-						//delete the old message and update the db entry with the id of the new one
-						console.log("deleting old command list message");
-						const commandMessageChannel = interaction.guild.channels.fetch(entry.channelID);
-						commandMessageChannel.then(channel => {
-							//TODO: error check this
-							let msg = channel.messages.fetch(entry.messageID);
-							msg.then(msgToDelete => {
-								msgToDelete.delete();
-							})
-						})
-
-						console.log("updating the command message ID in the database");
-						const affectedRows = MessageDatabase.update({messageID: embedMessage.id.toString(), channelID: theChannel.id.toString()}, {where: {category: 'commands'}});
-						MessageDatabase.sync();
-
-						affectedRows.then(rows => {
-							if(rows[0] > 0){
-								console.log("succesfully updated the command message ID in the database");
-							}
-							else{
-								Channels.findOne({where: {name: "log"} }).then(logchannel => {
-									let logChannelID = logchannel.channelID;
-									client.channels.cache.get(logChannelID).send("Failed to update the command message ID in the database. The old command menu will remain, and the buttons will be non-functional");
-								})
-							}
-						})
-					}
-					else{
-						//there is no help message id in the database. try to create an entry
-						console.log("trying to store " + embedMessage.id);
-						try{
-							MessageDatabase.create({
-								category: 'commands',
-								messageID: embedMessage.id.toString(),
-								channelID: theChannel.id.toString(),
-							});
-							MessageDatabase.sync();
-						}
-						catch(error){
-							Channels.findOne({where: {name: "log"} }).then(logchannel => {
-								let logChannelID = logchannel.channelID;
-								client.channels.cache.get(logChannelID).send(`Failed to create the command message ID in the database. Here's the error: ${error}`);
-							})
-						}
-					}
-				})
-			})
-			const test = MessageDatabase.findOne({where: {category: 'commands'}});
-			test.then(testtest => {
-				console.log("stored " + testtest.messageID);
-			})
-		}
-
-		try {
-			command.execute(interaction);
-		} catch (error) {
-			console.error(error);
-			if (interaction.replied || interaction.deferred) {
-				interaction.followUp({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
-			} else {
-				interaction.reply({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
+	if(cmdName == 'modrole' || cmdName == 'entryrole'){
+		console.log("Syncing the roles db");
+		Roles.sync();
+		Roles.findOne({where: {name: "mod"} }).then(role => {
+			if(role){
+				modRoleID = role.roleID;
+				console.log("the modrole is " + modRoleID);
 			}
+		})
+		Roles.findOne({where: {name: "entry"} }).then(role => {
+			if(role){
+				entryRoleID = role.roleID;
+			}
+		})
+	}
+
+	if(cmdName == 'intronotify'){
+		console.log("Syncing the introduction notification settings db");
+		Introping.sync();
+		Introping.findOne({where: {category: "standard"}}).then(settings => {
+			if(settings){
+				if(settings.onoff == 1){
+					intropingOnOff = true;
+				}
+				else{
+					intropingOnOff = false;
+				}
+			}
+			else{
+				intropingOnOff = false;
+			}
+		})
+	}
+
+	if(cmdName == 'modchannel' || cmdName == 'introchannel'){
+		console.log("Syncing the channels db");
+		Channels.sync();
+		Channels.findOne({where: {name: "introductions"}}).then(channel => {
+			if(channel){
+				introChannelID = channel.channelID;
+			}
+		})
+		Channels.findOne({where: {name: "mod"}}).then(channel => {
+			if(channel){
+				modChannelID = channel.channelID;
+			}
+		})
+	}
+
+	if(cmdName == "addphrase" || cmdName == "modphrase" || cmdName == "delphrase"){
+		console.log("Syncing phrases db");
+		Phrases.sync();
+
+		console.log("updating local phrases list");
+		badPhrases = new Set();
+		Phrases.findAll().then(phrases => {
+			console.log(`${phrases.length} phrases in the db`);
+			phrases.forEach(entry => {
+				badPhrases.add(entry.phrase);
+			})
+		})
+	}
+
+	if(cmdName == "exclude" || cmdName == "include" || cmdName == "update"){
+		console.log("Syncing blacklist tables");
+		Blacklist.sync();
+
+		console.log("updating local blacklists");
+		phrasesBlackList = new Set();
+		mentionBlackList = new Set();
+		spamBlackList = new Set();
+		Blacklist.findAll().then(entries => {
+			entries.forEach(entry => {
+				let categories = entry.category.split(' ');
+				if(categories.includes('phrases')){
+					phrasesBlackList.add(entry.channelID);
+				}
+				if(categories.includes('mention')){
+					mentionBlackList.add(entry.channelID);
+				}
+				if(categories.includes('spam')){
+					spamBlacklist.add(entry.channelID);
+				}
+			})
+		})
+	}
+
+	if(cmdName == 'mentionconfig'){
+		console.log("Syncing mention spam settings db");
+		MentionSpamSettings.sync();
+
+		const stdSettings = MentionSpamSettings.findOne({where: {category: 'standard'}});
+		const raidSettings = MentionSpamSettings.findOne({where: {category: 'raid'}});
+
+		stdSettings.then(settings => {
+			if(settings.onoff == null || settings.onoff == 0){
+				stdMentionSpamOnOff = false;
+			}
+			else{
+				stdMentionSpamOnOff = true;
+			}
+		});
+
+		raidSettings.then(settings => {
+			if(settings.onoff == null || settings.onoff == 0){
+				raidMentionSpamOnOff = false;
+			}
+			else{
+				raidMentionSpamOnOff = true;
+			}
+		})
+	}
+
+	if(cmdName == 'suspectedconfig'){
+		console.log('Syncing suspected spam settings db');
+		SuspectedSpamSettings.sync();
+
+		const stdSettings = SuspectedSpamSettings.findOne({where: {category: 'standard'}});
+		const linkSettings = SuspectedSpamSettings.findOne({where: {category: 'link'}});
+
+		stdSettings.then(settings => {
+			if(settings.onoff == null || settings.onoff == 0){
+				stdSusSpamOnOff = false;
+			}
+			else{
+				stdSusSpamOnOff = true;
+			}
+		});
+
+		linkSettings.then(settings => {
+			if(settings.onoff == null || settings.onoff == 0){
+				linkSusSpamOnOff = false;
+			}
+			else{
+				linkSusSpamOnOff = true;
+			}
+		})
+	}
+
+	if(cmdName == 'managehost'){
+		console.log('Syncing host spam protection db');
+		LinkBlacklist.sync();
+
+		badHosts = new Set();
+		LinkBlacklist.findAll().then(entries => {
+			entries.forEach(entry => {
+				if(entry.onoff == 1){
+					badHosts.add(entry.host);
+				}
+			})
+		})
+	}
+
+	if(cmdName == 'managenameslist'){
+		console.log('Syncing name block databases');
+		NameBlock.sync();
+		NameBlockSettings.sync();
+
+		namesBlackList = new Set();
+		namesWhiteList = new Set();
+		NameBlock.findAll().then(entries => {
+			entries.forEach(entry => {
+				if(entry.blackwhite == 1){
+					namesBlackList.add(entry); //have to add as an entry due to regex check
+				}
+				else{
+					namesWhiteList.add(entry);
+				}
+			})
+		})
+	}
+	if(cmdName == 'namesbypass'){
+		console.log('Synching name block bypass db');
+		AllowList.sync();
+
+		namesAllowListRoles = new Set();
+		namesAllowListMembers = new Set();
+		AllowList.findAll().then(entries => {
+			entries.forEach(entry => {
+				if(entry.roleuser == 1){
+					namesAllowListRoles.add(entry.entry); //id
+				}
+				else{
+					namesAllowListMembers.add(entry.entry);
+				}
+			})
+		})
+	}
+
+	if(cmdName == 'template'){
+		console.log('Synching template db');
+		Template.sync();
+	}
+
+	if(cmdName == "help"){
+		console.log('Synching messages db');
+		MessageDatabase.sync();
+		let theChannel = interaction.channel;
+		let embedMsg = theChannel.send({embeds: [helpEmbed]}).then(embedMessage => {
+			const configReact = embedMessage.react("⚙️");
+			const welcomeReact = embedMessage.react("👋");
+			const responseReact = embedMessage.react("↔️");
+			const spamReact = embedMessage.react("💢");
+			const namesReact = embedMessage.react("📜");
+
+			//store the message id in a database or something i dunno
+			const helpMsgEntry = MessageDatabase.findOne({where: {category: 'help'}}).then(entry => {
+				if(entry){
+					//delete the old message and update the db entry with the id of the new one
+					console.log("deleting old help menu message");
+					const helpMessageChannel = interaction.guild.channels.fetch(entry.channelID);
+					helpMessageChannel.then(channel => {
+						//TODO: error check this
+						let msg = channel.messages.fetch(entry.messageID);
+						msg.then(msgToDelete => {
+							msgToDelete.delete();
+						})
+					})
+
+					console.log("updating the help message ID in the database");
+					const affectedRows = MessageDatabase.update({messageID: embedMessage.id.toString(), channelID: theChannel.id.toString()}, {where: {category: 'help'}});
+					MessageDatabase.sync();
+
+					affectedRows.then(rows => {
+						if(rows[0] > 0){
+							console.log("succesfully updated the help message ID in the database");
+						}
+						else{
+							Channels.findOne({where: {name: "log"} }).then(logchannel => {
+								let logChannelID = logchannel.channelID;
+								client.channels.cache.get(logChannelID).send("Failed to update the help message ID in the database. The old help menu will remain, and the buttons will be non-functional");
+							})
+						}
+					})
+				}
+				else{
+					//there is no help message id in the database. try to create an entry
+					console.log("trying to store " + embedMessage.id);
+					try{
+						MessageDatabase.create({
+							category: 'help',
+							messageID: embedMessage.id.toString(),
+							channelID: theChannel.id.toString(),
+						});
+						MessageDatabase.sync();
+					}
+					catch(error){
+						Channels.findOne({where: {name: "log"} }).then(logchannel => {
+							let logChannelID = logchannel.channelID;
+							client.channels.cache.get(logChannelID).send(`Failed to create the help message ID in the database. Here's the error: ${error}`);
+						})
+					}
+				}
+			})
+		})
+		const test = MessageDatabase.findOne({where: {category: 'help'}});
+		test.then(testtest => {
+			console.log("stored " + testtest.messageID);
+		})
+	}
+
+	if(cmdName == "masterlist"){
+		console.log('Synching messages db');
+		MessageDatabase.sync();
+		let theChannel = interaction.channel;
+		let embedMsg = theChannel.send({embeds: [commandsEmbed]}).then(embedMessage => {
+			const commandMsgEntry = MessageDatabase.findOne({where: {category: 'commands'}}).then(entry => {
+				if(entry){
+					//delete the old message and update the db entry with the id of the new one
+					console.log("deleting old command list message");
+					const commandMessageChannel = interaction.guild.channels.fetch(entry.channelID);
+					commandMessageChannel.then(channel => {
+						//TODO: error check this
+						let msg = channel.messages.fetch(entry.messageID);
+						msg.then(msgToDelete => {
+							msgToDelete.delete();
+						})
+					})
+
+					console.log("updating the command message ID in the database");
+					const affectedRows = MessageDatabase.update({messageID: embedMessage.id.toString(), channelID: theChannel.id.toString()}, {where: {category: 'commands'}});
+					MessageDatabase.sync();
+
+					affectedRows.then(rows => {
+						if(rows[0] > 0){
+							console.log("succesfully updated the command message ID in the database");
+						}
+						else{
+							Channels.findOne({where: {name: "log"} }).then(logchannel => {
+								let logChannelID = logchannel.channelID;
+								client.channels.cache.get(logChannelID).send("Failed to update the command message ID in the database. The old command menu will remain, and the buttons will be non-functional");
+							})
+						}
+					})
+				}
+				else{
+					//there is no help message id in the database. try to create an entry
+					console.log("trying to store " + embedMessage.id);
+					try{
+						MessageDatabase.create({
+							category: 'commands',
+							messageID: embedMessage.id.toString(),
+							channelID: theChannel.id.toString(),
+						});
+						MessageDatabase.sync();
+					}
+					catch(error){
+						Channels.findOne({where: {name: "log"} }).then(logchannel => {
+							let logChannelID = logchannel.channelID;
+							client.channels.cache.get(logChannelID).send(`Failed to create the command message ID in the database. Here's the error: ${error}`);
+						})
+					}
+				}
+			})
+		})
+		const test = MessageDatabase.findOne({where: {category: 'commands'}});
+		test.then(testtest => {
+			console.log("stored " + testtest.messageID);
+		})
+	}
+
+	try {
+		command.execute(interaction);
+	} catch (error) {
+		console.error(error);
+		if (interaction.replied || interaction.deferred) {
+			interaction.followUp({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
+		} else {
+			interaction.reply({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
 		}
 	}
 })
@@ -925,8 +960,7 @@ client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 })
 
 //checks if a given phrase exists in a list of words
-function phraseFinder(wordList, phrasepair){
-	const phrase = phrasepair.phrase;
+function phraseFinder(wordList, phrase){
 	let splitphrase = phrase.split(' ');
 	const phraseLength = splitphrase.length;
 	if(phraseLength > 1){
@@ -935,29 +969,17 @@ function phraseFinder(wordList, phrasepair){
 
 		let foundit = false;
 		while(lastIndex < wordList.length){
-			if(phrasepair.regex == 1){
-				console.log("regex");
-				const regexPhrase = new RegExp(phrase);
-				if(regexPhrase.test(wordList[firstIndex])){
-					foundit = true;
-					console.log("Found the phrase at index " + firstIndex);
-					break;
+			if(wordList[firstIndex] == splitphrase[0]){
+				let breakCondition = false;
+				for(let i = 1; i < phraseLength; i++){
+					if(wordList[firstIndex + i] != splitphrase[i]){
+						breakCondition = true;
+					}
+					if(breakCondition){ break; }
 				}
-			}
-			else{
-				console.log(phrasepair.regex);
-				if(wordList[firstIndex] == splitphrase[0]){
-					let breakCondition = false;
-					for(let i = 1; i < phraseLength; i++){
-						if(wordList[firstIndex + i] != splitphrase[i]){
-							breakCondition = true;
-						}
-						if(breakCondition){ break; }
-					}
-					if(!breakCondition){
-						console.log("Found the phrase! The first word is at index " + firstIndex);
-						foundit = true;
-					}
+				if(!breakCondition){
+					console.log("Found the phrase! The first word is at index " + firstIndex);
+					foundit = true;
 				}
 			}
 			
@@ -973,24 +995,57 @@ function phraseFinder(wordList, phrasepair){
 		}
 	}
 	else{
-		if(phrasepair.regex == 1){
-			const regexPhrase = new RegExp(phrase);
-			var foundit = false;
-			wordList.forEach(word => {
-				if(regexPhrase.test(word)){
-					foundit = true;
-				}
-			});
-			return foundit;
-		}
-		else{
-			return wordList.includes(phrase);
-		}
+		return wordList.includes(phrase);
 	}
 }
 
 client.on(Events.MessageCreate, message => {
 	if(!message.author.bot){
+		if(intropingOnOff){
+			if(introChannelID && entryRoleID){
+				if(message.channel.id == introChannelID){
+					let hasEntryRole = false;
+					message.member.roles.cache.each(role => {
+						if(role.id === entryRoleID){
+							hasEntryRole = true;
+						}
+					});
+					if(!hasEntryRole){
+						let newMemberID = message.member.id.toString();
+						if(!introsMadeIDSet.has(newMemberID)){
+							let entryID = message.member.id.toString();
+							try{
+								IntroMade.create({
+									userID: entryID,
+								});
+								IntroMade.sync();
+								introsMadeIDSet.add(entryID);
+							}
+							catch(error){
+								console.log("Something went wrong with adding to the introduction database. Here's the error: " + error);
+							}
+
+							var modMessage;
+							if(modRoleID){
+								modMessage = modMessage = "Hey <@&" + modRoleID + ">! Looks like someone new has introduced themselves for the first time.";
+							}
+							else{
+								modMessage = "Hey mods! Looks like someone new has introduced themselves for the first time.";
+							}
+							if(modChannelID){
+								client.channels.cache.get(modChannelID).send(modMessage);
+							}
+						}
+						else{
+							console.log("already made an intro");
+						}
+					}
+					else{
+						console.log("has the role");
+					}
+				}
+			}
+		}
 		if(![...phrasesBlackList].includes(message.channel.id)){
 			let splitup = message.content.toLowerCase().replace(/[.,\/#!?$%\^&\*;:{}=\-_`~()]/g,"").split(' ');
 			let splitupSet = new Set();
@@ -1000,14 +1055,14 @@ client.on(Events.MessageCreate, message => {
 			let badphrases = [...badPhrases];
 
 			let foundBadPhrases = new Set();
-			for(let phrasepair of badphrases){
-				if(phraseFinder(splitup, phrasepair)){
+			for(let phrase of badphrases){
+				if(phraseFinder(splitup, phrase)){
 					console.log("Found a bad phrase!");
 
-					const respondTo = Phrases.findOne({where: {phrase: phrasepair.phrase} });
+					const respondTo = Phrases.findOne({where: {phrase: phrase} });
 
 					respondTo.then(entry => {
-						let logMessage = `A user posted the word, phrase, or regex ||${entry.phrase}|| in ${message.channel}.`;
+						let logMessage = `A user posted the word or phrase ||${entry.phrase}|| in ${message.channel}.`;
 						let reply = entry.response;
 
 						if(reply != null && reply.length > 0){
@@ -1298,7 +1353,9 @@ client.once(Events.ClientReady, c => {
 	Template.sync();
 	MessageDatabase.sync();
 	Welcome.sync();
-	Archived.sync();
+	Roles.sync();
+	Introping.sync();
+	IntroMade.sync();
 	
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
@@ -1321,7 +1378,7 @@ client.once(Events.ClientReady, c => {
 	badPhrases = new Set();
 	Phrases.findAll().then(phrases => {
 		phrases.forEach(phrase => {
-			badPhrases.add(new PhrasePair(phrase.phrase, phrase.regex));
+			badPhrases.add(phrase.phrase);
 		})
 	})
 	mentionMessages = [];
@@ -1398,6 +1455,83 @@ client.once(Events.ClientReady, c => {
 			else{
 				namesAllowListMembers.add(entry.entry);
 			}
+		})
+	})
+
+	Introping.findOne({where: {category: "standard"}}).then(settings => {
+		if(settings){
+			if(settings.onoff == 1){
+				intropingOnOff = true;
+			}
+			else{
+				intropingOnOff = false;
+			}
+		}
+		else{
+			intropingOnOff = false;
+		}
+	})
+
+	Channels.findOne({where: {name: "mod"}}).then(channel => {
+		if(channel){
+			modChannelID = channel.channelID;
+		}
+		else{
+			let warning = "WARNING: No mod chat channel has been set! This will prevent the introduction notification system from working properly. Set it with the /modchannel command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Channels.findOne({where: {name: "introductions"}}).then(channel => {
+		if(channel){
+			introChannelID = channel.channelID;
+		}
+		else{
+			let warning = "WARNING: No introduction channel has been set! This will prevent the introduction notification system from working. Set it with the /introchannel command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Roles.findOne({where: {name: "entry"} }).then(role => {
+		if(role){
+			entryRoleID = role.roleID;
+		}
+		else{
+			let warning = "WARNING: No server entry role has been set! This will prevent the introduction notification system from working. Set it with the /entryrole command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Roles.findOne({where: {name: "mod"} }).then(role => {
+		if(role){
+			modRoleID = role.roleID;
+		}
+		else{
+			let warning = "WARNING: No moderator role has been set! This will prevent the pinging part of the introduction notification system from working. Set it with the /modrole command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	introsMadeIDSet = new Set();
+	IntroMade.findAll().then(entries => {
+		entries.forEach(entry => {
+			introsMadeIDSet.add(entry.userID);
 		})
 	})
 
@@ -1485,6 +1619,32 @@ function nameHandler(member){
 client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	nameHandler(oldMember);
 	nameHandler(newMember);
+
+	let existingUser = false;
+	oldMember.roles.cache.each(role => {
+		if(role.id == entryRoleID){
+			existingUser = true;
+			return;
+		}
+	});
+	if(!existingUser){
+		let gainedEntry = false;
+		newMember.roles.cache.each(role => {
+			if(role.id == entryRoleID){
+				gainedEntry = true;
+				return;
+			}
+		});
+
+		if(gainedEntry){
+			const introEntry = IntroMade.findOne({where: {userID: newMember.id}});
+			if(introEntry){
+				IntroMade.destroy({truncate: true, cascade: true, restartIdentity: true, where: {userID: newMember.id} });
+				IntroMade.sync();
+				introsMadeIDSet.delete(newMember.id);
+			}
+		}
+	}
 })
 
 client.on(Events.GuildMemberAdd, member => {
