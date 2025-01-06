@@ -165,6 +165,14 @@ const Introping = sequelize.define('introping', {
 	onoff: Sequelize.TINYINT,
 });
 
+const Categories = sequelize.define('categories', {
+	name: {
+		type: Sequelize.STRING,
+		unique: true,
+	},
+	categoryID: Sequelize.TEXT,
+});
+
 //when a user posts an introduction for the first time, they are added to this database
 //when a user is granted the role admitting them to the rest of the server, they will need to be programmatically cleared from this database
 const IntroMade = sequelize.define('introduced', {
@@ -172,6 +180,14 @@ const IntroMade = sequelize.define('introduced', {
 		type: Sequelize.TEXT,
 		unique: true,
 	}
+});
+
+const Messages = sequelize.define('messagetexts', {
+	category: {
+		type: Sequelize.STRING,
+		unique: true,
+	},
+	text: Sequelize.TEXT,
 });
 
 for (const folder of commandFolders) {
@@ -208,8 +224,10 @@ configEmbed = new EmbedBuilder()
 	.addFields(
 		{name: "/logchannel", value: "changes the channel to which this bot logs events", inline: false},
 		{name: "/introchannel", value: "changes which channel is set as the introduction channel (for the introduction notification system)", inline: false},
+		{name: "/categories", value: "sets or gets the ID of certain channel categories (currently only supported for welcome channels)", inline: false},
 		{name: "/modchannel", value: "changes which channel is set as the mod chat channel (for the introduction notification system)", inline: false},
 		{name: "/modrole", value: "changes which role is set as the moderator role (to be pinged for the introduction notification system)", inline: false},
+		{name: "/messages", value: "gets all of or sets various pre-set messages to be sent with other settings (currently only supported for welcome channel messages)", inline: false},
 		{name: "/exclude", value: "adds a channel to one or several of the feature exlusion lists. If a channel is on, for example, the mention exlusion list, then the mention spam protection feature will not work in that channel, even if that feature is turned on for the server.", inline: false},
 		{name: "/include", value: "the opposite of /exclude. This command removes a given channel from all exclusion lists it's on. The bot features will now work normally in the given channel.", inline: false},
 		{name: "/update", value: "updates exclusion list(s) of the given channel. This command can be used to move a channel onto or off of one or several feature exlusion lists.", inline: false},
@@ -288,14 +306,15 @@ namesEmbed = new EmbedBuilder()
 	)
 	.setFooter({text: 'Return to the main menu by clicking the ◀️ below'});
 
-commandsEmbed = new EmbedBuilder()
+commandsEmbedPageOne = new EmbedBuilder()
 	.setColor("#7F8C8D")
-	.setTitle("Command List")
-	.setDescription("This is the complete list of all commands and the category they can be found under in the help menu")
+	.setTitle("Command List Page 1")
+	.setDescription("This is page 1 of the complete list of all commands, and the category they can be found under in the help menu")
 	.addFields(
 		{name: "/addphrase", value: "↔️ Responses", inline: true},
 		{name: "/archive", value: "👋 Welcome", inline: true},
 		{name: "/blacklist", value: "⚙️ Config", inline: true},
+		{name: "/categories", value: "⚙️ Config", inline: true},
 		{name: "/delete", value: "👋 Welcome", inline: true},
 		{name: "/delphrase", value: "↔️ Responses", inline: true},
 		{name: "/entryrole", value: "👋 Welcome", inline: true},
@@ -307,6 +326,7 @@ commandsEmbed = new EmbedBuilder()
 		{name: "/intronotify", value: "👋 Welcome", inline: true},
 		{name: "/listphrases", value: "↔️ Responses", inline: true},
 		{name: "/logchannel", value: "⚙️ Config", inline: true},
+		{name: "/messages", value: "⚙️ Config", inline: true},
 		{name: "/modchannel", value: "⚙️ Config", inline: true},
 		{name: "/modrole", value: "⚙️ Config", inline: true},
 		{name: "/managehost", value: "💢 Spam", inline: true},
@@ -315,11 +335,19 @@ commandsEmbed = new EmbedBuilder()
 		{name: "/modphrase", value: "↔️ Responses", inline: true},
 		{name: "/namesbypass", value: "📜 Names", inline: true},
 		{name: "/suspectedconfig", value: "💢 Spam", inline: true},
-		{name: "/template", value: "⚙️ Config", inline: true},
+		{name: "/template", value: "⚙️ Config", inline: true}
+	)
+	.setFooter({text: 'Run the /help command to find out more about these commands.'});
+
+commandsEmbedPageTwo = new EmbedBuilder()
+	.setColor("#7F8C8D")
+	.setTitle("Command List Page 2")
+	.setDescription("This is page 2 of the complete list of all commands, and the category they can be found under in the help menu")
+	.addFields(
 		{name: "/update", value: "⚙️ Config", inline: true},
 		{name: "/welcome", value: "👋 Welcome"}
 	)
-	.setFooter({text: 'Run the /help command to find out more about these commands'});
+	.setFooter({text: 'Run the /help command to find out more about these commands.'});
 
 let badPhrases = new Set();
 let badHosts = new Set();
@@ -332,18 +360,23 @@ let namesAllowListRoles = new Set();
 let namesAllowListMembers = new Set();
 let introsMadeIDSet = new Set();
 
+var mentionMessages = [];
+var susMessages = [];
+
 var stdMentionSpamOnOff;
 var raidMentionSpamOnOff;
 var stdSusSpamOnOff;
 var linkSusSpamOnOff;
 var intropingOnOff;
+
 var introChannelID;
+var welcomeCategoryID;
 var modChannelID;
 var entryRoleID;
 var modRoleID;
-var mentionMessages = [];
-var susMessages = [];
+
 var prevMsg;
+var welcomeMessage;
 
 client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
@@ -384,6 +417,26 @@ client.on(Events.InteractionCreate, async interaction => {
 		Roles.findOne({where: {name: "entry"} }).then(role => {
 			if(role){
 				entryRoleID = role.roleID;
+			}
+		})
+	}
+
+	if(cmdName == 'messages'){
+		console.log("Syncing the messages db");
+		Messages.sync();
+		Messages.findOne({where: {category: "welcome"} }).then(message => {
+			if(message){
+				welcomeMessage = message.text;
+			}
+		})
+	}
+
+	if(cmdName == 'categories'){
+		console.log("Syncing the categories db");
+		Categories.sync();
+		Categories.findOne({where: {name: "welcome"} }).then(category => {
+			if(category){
+				welcomeCategoryID = category.categoryID;
 			}
 		})
 	}
@@ -637,7 +690,8 @@ client.on(Events.InteractionCreate, async interaction => {
 		console.log('Synching messages db');
 		MessageDatabase.sync();
 		let theChannel = interaction.channel;
-		let embedMsg = theChannel.send({embeds: [commandsEmbed]}).then(embedMessage => {
+		let embedMsg = theChannel.send({embeds: [commandsEmbedPageOne]}).then(embedMessage => {
+			embedMessage.react("▶️");
 			const commandMsgEntry = MessageDatabase.findOne({where: {category: 'commands'}}).then(entry => {
 				if(entry){
 					//delete the old message and update the db entry with the id of the new one
@@ -777,6 +831,28 @@ async function susEmbedHelper(message){
 	return;
 }
 
+async function cmdListEmbedHelper(message, page){
+	switch(page){
+	case 1:
+		console.log("Switching to page 1");
+		message.edit({embeds: [commandsEmbedPageOne]}).then(msg => {
+			msg.reactions.removeAll().then(() => {
+				msg.react("▶️");
+			});
+		});
+		break;
+	case 2:
+		console.log("Switching to page 2");
+		message.edit({embeds: [commandsEmbedPageTwo]}).then(msg => {
+			msg.reactions.removeAll().then(() => {
+				msg.react("◀️");
+			});
+		});
+		break;
+	}
+	return;
+}
+
 async function messageReactionEmbedHelper(message){
 	let helpEmbed = message.embeds[0];
 	if(helpEmbed){
@@ -819,7 +895,6 @@ async function messageReactionEmbedHelper(message){
 		else if(title == "Welcome Channel Help Menu"){
 			//yes, I'm copy-pasting code in multiple locations. 
 			//it's in case i want to easily add menu options to any of these in the future
-			//it's called scalability look it up sweaty
 			reactions.cache.forEach(react => {
 				if(react.count == 2){
 					if(react.emoji.name == "◀️"){
@@ -913,6 +988,21 @@ async function messageReactionEmbedHelper(message){
 						mainEmbedHelper(message);
 						return;
 					}
+				}
+			})
+		}
+		else if(title == "Command List Page 1" || title == "Command List Page 2"){ //this will need to be rewritten if more pages are added
+			reactions.cache.forEach(react => {
+				if(react.count == 2){
+					if(react.emoji.name == "▶️"){
+						console.log("switching to page 2");
+						cmdListEmbedHelper(message, 2);
+					}
+					else if(react.emoji.name == "◀️"){
+						console.log("switching to page 1");
+						cmdListEmbedHelper(message, 1);
+					}
+					return;
 				}
 			})
 		}
@@ -1356,6 +1446,8 @@ client.once(Events.ClientReady, c => {
 	Roles.sync();
 	Introping.sync();
 	IntroMade.sync();
+	Categories.sync();
+	Messages.sync();
 	
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
@@ -1535,6 +1627,35 @@ client.once(Events.ClientReady, c => {
 		})
 	})
 
+	Categories.findOne({where: {name: "welcome"} }).then(category => {
+		if(category){
+			welcomeCategoryID = category.categoryID;
+		}
+		else{
+			let warning = "WARNING: No category has been assigned for the welcome channels. If welcome channel creation is on, the welcome channels will be placed at the top of the server outside of any category. Set a category for these with the `/categories welcome` command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Messages.findOne({where: {category: "welcome"} }).then(message => {
+		if(message){
+			welcomeMessage = message.text;
+			console.log("msg: " + message.text);
+		}
+		else{
+			let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
 	console.log(`Logged in as ${c.user.tag}!`);
 })
 
@@ -1653,25 +1774,105 @@ client.on(Events.GuildMemberAdd, member => {
 	Welcome.findOne({where: {category: "standard"} }).then(welcome => {
 		if(welcome){
 			if(welcome.onoff == 1){
-				member.guild.channels.create({
-					name: "Welcome-" + memberName,
-					type: ChannelType.GuildText,
-					permissionOverwrites: [{
-						id: member.id,
-						allow: [PermissionsBitField.Flags.ViewChannel,
-								PermissionsBitField.Flags.ReadMessageHistory]
-					},
-					{
-						id: member.guild.roles.everyone,
-						deny: [PermissionsBitField.Flags.ViewChannel]
-					}]
-				});
+				if(welcomeCategoryID){
+					member.guild.channels.fetch(welcomeCategoryID).then(category => {
+						if(category){
+							member.guild.channels.create({
+								name: "Welcome-" + memberName,
+								type: ChannelType.GuildText,
+								parent: welcomeCategoryID,
+								permissionOverwrites: [{
+									id: member.id,
+									allow: [PermissionsBitField.Flags.ViewChannel,
+											PermissionsBitField.Flags.ReadMessageHistory]
+								},
+								{
+									id: member.guild.roles.everyone,
+									deny: [PermissionsBitField.Flags.ViewChannel]
+								}]
+							}).then(channel => {
+								if(welcomeMessage){
+									channel.send(welcomeMessage);
+								}
+								else{
+									let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+									console.log(warning);
+									Channels.findOne({where: {name: "log"} }).then(logchannel => {
+										let logChannelID = logchannel.channelID;
+										client.channels.cache.get(logChannelID).send(warning);
+									});
+								}
+							});
+						}
+						else{
+							let warning = "__WARNING: INVALID WELCOME CHANNEL CATEGORY ID SET.__ The ID of the category under which welcome channels are to be made was set to " + welcomeCategoryID + ", but no category with that ID was found. The new welcome channel will be placed at the top of the server instead.";
+							console.log(warning);
+							Channels.findOne({where: {name: "log"} }).then(logchannel => {
+								let logChannelID = logchannel.channelID;
+								client.channels.cache.get(logChannelID).send(warning);
+							});
+							member.guild.channels.create({
+								name: "Welcome-" + memberName,
+								type: ChannelType.GuildText,
+								permissionOverwrites: [{
+									id: member.id,
+									allow: [PermissionsBitField.Flags.ViewChannel,
+											PermissionsBitField.Flags.ReadMessageHistory]
+								},
+								{
+									id: member.guild.roles.everyone,
+									deny: [PermissionsBitField.Flags.ViewChannel]
+								}]
+							}).then(channel => {
+								if(welcomeMessage){
+									channel.send(welcomeMessage);
+								}
+								else{
+									let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+									console.log(warning);
+									Channels.findOne({where: {name: "log"} }).then(logchannel => {
+										let logChannelID = logchannel.channelID;
+										client.channels.cache.get(logChannelID).send(warning);
+									});
+								}
+							});
+						}
+					})
+				}
+				else{
+					member.guild.channels.create({
+						name: "Welcome-" + memberName,
+						type: ChannelType.GuildText,
+						permissionOverwrites: [{
+							id: member.id,
+							allow: [PermissionsBitField.Flags.ViewChannel,
+									PermissionsBitField.Flags.ReadMessageHistory]
+						},
+						{
+							id: member.guild.roles.everyone,
+							deny: [PermissionsBitField.Flags.ViewChannel]
+						}]
+					}).then(channel => {
+						if(welcomeMessage){
+							channel.send(welcomeMessage);
+						}
+						else{
+							let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+							console.log(warning);
+							Channels.findOne({where: {name: "log"} }).then(logchannel => {
+								let logChannelID = logchannel.channelID;
+								client.channels.cache.get(logChannelID).send(warning);
+							});
+						}
+					});
+				}
 			}
 		}
 	})
 	nameHandler(member);
 })
 
+//this is the other half of the /delete command. it was less work to put this code here instead of in the /delete command code
 client.on(Events.ChannelDelete, channel => {
 	const channelName = channel.name;
 	console.log(channelName + " was deleted");
