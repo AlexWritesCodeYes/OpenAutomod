@@ -18,7 +18,7 @@ const Channels = sequelize.define('channels', {
 });
 
 const Archived = sequelize.define('archived', { //database of archived channels
-	channelID: {											   //double check this database before allowing /delete
+	channelID: {								//double check this database before allowing /delete
 		type: Sequelize.TEXT,
 		unique: true,
 	},
@@ -110,7 +110,7 @@ module.exports = {
 	execute(interaction){
 		const channel = interaction.options.getChannel('channel');
 		const channelName = channel.name;
-		const channelID = channel.id;
+		const channelID = channel.id.toString();
 		if(channelName.slice(0, 7) != "welcome"){
 			return interaction.reply({ content: `${channelName} is not a welcome channel. Please do not do that.`,
 			 ephemeral: false });
@@ -123,6 +123,8 @@ module.exports = {
 				
 				let msgList = [];
 				msgList = grabMany(channel, {limit: 100}, msgList);
+
+				//console.log(`msgList: ${msgList}`);
 
 				msgList.then(messageList => {
 					console.log(channel.name);
@@ -146,21 +148,26 @@ module.exports = {
 					}
 				});
 
-				Archived.findOne({where: {channelID: channelID}}).then(ach => {
-					if(!ach){
-						try{
+				try{
+					Archived.findOne({where: {channelID: channelID}}).then(arChnl => {
+						if(arChnl){
+							logChannel.send(channelName + " has already been archived!");
+						}
+						else{
 							Archived.create({
 								channelID: channelID,
 								name: channelName,
 							});
-							Channels.sync();
+							Archived.sync();
 						}
-						catch(error){
-							console.log(error);
-						}
-					}
-				});
+					});
+				}
+				catch(error){
+					let errMsg = "Something went wrong adding this channel to the database of archived channels. Tell the dev to fix it. Here's the error: " + error;
+					logChannel.send(errMsg);
+				}
 
+				//let messageList = []; //placeholder
 				return interaction.reply({ content: `Success! ${channelName} was archived in the designated log channel.`, ephemeral: false });
 			})
 		}
