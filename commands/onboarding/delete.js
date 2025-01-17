@@ -10,7 +10,7 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 });
 
 const Archived = sequelize.define('archived', { //database of archived channels
-	channelID: {											   //double check this database before allowing /delete
+	channelID: {								//double check this database before allowing /delete
 		type: Sequelize.TEXT,
 		unique: true,
 	},
