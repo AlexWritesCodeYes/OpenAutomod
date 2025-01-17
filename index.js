@@ -394,12 +394,6 @@ client.on(Events.InteractionCreate, async interaction => {
 		return interaction.reply({content: "You shouldn't be able to use this bot. Please ping an admin to fix this.", ephemeral: false});
 	}
 
-	console.log(interaction);
-	Channels.findOne({where: {name: "log"} }).then(logchannel => {
-		let logChannelID = logchannel.channelID;
-		client.channels.cache.get(logChannelID).send("Received an interaction: " + interaction.commandName);
-	})
-
 	if(interaction.isButton()){
 		if(interaction.customId.toString().slice(0, 11) === 'yes_button-'){
 			const channelID = interaction.customId.toString().slice(11); //embedding the channel id in the interaction id is a stupid hack
@@ -440,6 +434,12 @@ client.on(Events.InteractionCreate, async interaction => {
 	else{
 		const command = client.commands.get(interaction.commandName);
 		const cmdName = interaction.commandName;
+
+		console.log(interaction);
+		Channels.findOne({where: {name: "log"} }).then(logchannel => {
+			let logChannelID = logchannel.channelID;
+			client.channels.cache.get(logChannelID).send("Received an interaction: " + interaction.commandName);
+		});
 
 		if (!command) {
 			console.error(`No command matching ${interaction.commandName} was found.`);
