@@ -78,7 +78,7 @@ const MentionSpamSettings = sequelize.define('mentionspam', {
 	alert: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
 	timeframe: Sequelize.INTEGER,	//the last three are for
-	msglimit: Sequelize.SMALLINT,		//raid settings
+	msglimit: Sequelize.SMALLINT,	//raid settings
 	userlimit: Sequelize.MEDIUMINT,	//i think
 });
 
@@ -1142,9 +1142,9 @@ function phraseFinder(wordList, phrase){
 }
 
 client.on(Events.MessageCreate, message => {
-	if(!message.author.bot){
-		if(intropingOnOff){
-			if(introChannelID && entryRoleID){
+	if(!message.author.bot){ //dont process the message if a bot posted it
+		if(intropingOnOff){ //the intro ping system is on
+			if(introChannelID && entryRoleID){ //the intro channel id and entry role id have both been set
 				if(message.channel.id == introChannelID){
 					let hasEntryRole = false;
 					message.member.roles.cache.each(role => {
@@ -1242,9 +1242,9 @@ client.on(Events.MessageCreate, message => {
 			var mentions;
 			if(stdMentionSpamOnOff || raidMentionSpamOnOff){
 				let members = message.mentions.users;
-				members.tap(membrs => mentions = membrs.size);
+				members.tap(membrs => mentions = membrs.size); //how many people does the message ping?
 			}
-			if(stdMentionSpamOnOff){
+			if(stdMentionSpamOnOff){ //the standard mention spam protection is on
 				console.log(`this message has ${mentions} unique mentions`);
 				stdSettings.then(settings => {
 					if(mentions >= settings.uniques){
@@ -1268,7 +1268,7 @@ client.on(Events.MessageCreate, message => {
 					}
 				})
 			}
-			if(raidMentionSpamOnOff){
+			if(raidMentionSpamOnOff){ //the mention spam raid protection is on
 				raidSettings.then(settings => {
 					//make sure the list only has messages within the timeframe
 					let trueList = [];
@@ -1345,7 +1345,7 @@ client.on(Events.MessageCreate, message => {
 			}
 		}
 		if(![...spamBlacklist].includes(message.channel.id)){
-			if(stdSusSpamOnOff){
+			if(stdSusSpamOnOff){ //the standard suspected spam protection is on
 				const stdSettings = SuspectedSpamSettings.findOne({where: {category: 'standard'}});
 				stdSettings.then(settings => {
 					const messagelimit = settings.messagelimit;
@@ -1433,7 +1433,7 @@ client.on(Events.MessageCreate, message => {
 					prevMsg = message;
 				})
 			}
-			if(linkSusSpamOnOff){
+			if(linkSusSpamOnOff){ //the suspicious link spam protection is on
 				const linkSettings = SuspectedSpamSettings.findOne({where: {category: 'link'}});
 				const badhosts = [...badHosts];
 				const content = message.content;
@@ -1797,20 +1797,20 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	let existingUser = false;
 	oldMember.roles.cache.each(role => {
 		if(role.id == entryRoleID){
-			existingUser = true;
+			existingUser = true; //this user has already been admitted to the server
 			return;
 		}
 	});
-	if(!existingUser){
+	if(!existingUser){	//this user has NOT been admitted to the server yet. proceed
 		let gainedEntry = false;
 		newMember.roles.cache.each(role => {
 			if(role.id == entryRoleID){
-				gainedEntry = true;
+				gainedEntry = true; //the user was just granted access to the server
 				return;
 			}
 		});
 
-		if(gainedEntry){
+		if(gainedEntry){ //now that they've been let into the server, delete their entry from the database of intros made to clean up that database
 			const introEntry = IntroMade.findOne({where: {userID: newMember.id}});
 			if(introEntry){
 				IntroMade.destroy({truncate: true, cascade: true, restartIdentity: true, where: {userID: newMember.id} });
@@ -1825,11 +1825,11 @@ client.on(Events.GuildMemberAdd, member => {
 	const memberName = member.user.tag;
 	console.log(memberName + " joined the server");
 	Welcome.findOne({where: {category: "standard"} }).then(welcome => {
-		if(welcome){
-			if(welcome.onoff == 1){
-				if(welcomeCategoryID){
+		if(welcome){ //the welcome settings exist in the database
+			if(welcome.onoff == 1){ //the welcome channel system is on
+				if(welcomeCategoryID){ //the welcome category ID has been set
 					member.guild.channels.fetch(welcomeCategoryID).then(category => {
-						if(category){
+						if(category){ //the welcome category ID matches that of an existing category
 							member.guild.channels.create({
 								name: "Welcome-" + memberName,
 								type: ChannelType.GuildText,
@@ -1906,7 +1906,7 @@ client.on(Events.GuildMemberAdd, member => {
 							deny: [PermissionsBitField.Flags.ViewChannel]
 						}]
 					}).then(channel => {
-						if(welcomeMessage){
+						if(welcomeMessage){ //a welcome message has been set
 							channel.send(welcomeMessage);
 						}
 						else{
@@ -1922,7 +1922,17 @@ client.on(Events.GuildMemberAdd, member => {
 			}
 		}
 	})
-	nameHandler(member);
+	nameHandler(member); //process the new member's name to make sure it complies with the name blocker settings
+})
+
+client.on(Events.GuildMemberRemove, member => {
+	IntroMade.findOne({where: {userID: member.id}}).then(introEntry => {
+		if(introEntry){
+			IntroMade.destroy({truncate: true, cascade: true, restartIdentity: true, where: {userID: member.id} });
+			IntroMade.sync();
+			introsMadeIDSet.delete(member.id);
+		}
+	})
 })
 
 //this is the other half of the /delete command. it was less work to put this code here instead of in the /delete command code
