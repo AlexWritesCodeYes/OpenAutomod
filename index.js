@@ -1794,6 +1794,7 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	nameHandler(oldMember);
 	nameHandler(newMember);
 
+	//this is bugged and the database isn't clearing. I'm working on a fix
 	let existingUser = false;
 	oldMember.roles.cache.each(role => {
 		if(role.id == entryRoleID){
