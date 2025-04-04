@@ -1794,10 +1794,9 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	nameHandler(oldMember);
 	nameHandler(newMember);
 
-	//this is bugged and the database isn't clearing. I'm working on a fix
 	let existingUser = false;
 	oldMember.roles.cache.each(role => {
-		if(role.id == entryRoleID){
+		if(role.id === entryRoleID){
 			existingUser = true; //this user has already been admitted to the server
 			return;
 		}
@@ -1805,7 +1804,7 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	if(!existingUser){	//this user has NOT been admitted to the server yet. proceed
 		let gainedEntry = false;
 		newMember.roles.cache.each(role => {
-			if(role.id == entryRoleID){
+			if(role.id === entryRoleID){
 				gainedEntry = true; //the user was just granted access to the server
 				return;
 			}
