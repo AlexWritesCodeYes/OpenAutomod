@@ -438,7 +438,7 @@ client.on(Events.InteractionCreate, async interaction => {
 		console.log(interaction);
 		Channels.findOne({where: {name: "log"} }).then(logchannel => {
 			let logChannelID = logchannel.channelID;
-			client.channels.cache.get(logChannelID).send("Received an interaction: " + interaction.commandName);
+			client.channels.cache.get(logChannelID).send("Received an interaction: " + cmdName);
 		});
 
 		if (!command) {
