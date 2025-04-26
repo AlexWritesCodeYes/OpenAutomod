@@ -1811,12 +1811,13 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 		});
 
 		if(gainedEntry){ //now that they've been let into the server, delete their entry from the database of intros made to clean up that database
-			const introEntry = IntroMade.findOne({where: {userID: newMember.id}});
-			if(introEntry){
-				IntroMade.destroy({truncate: true, cascade: true, restartIdentity: true, where: {userID: newMember.id} });
-				IntroMade.sync();
-				introsMadeIDSet.delete(newMember.id);
-			}
+			IntroMade.findOne({where: {userID: newMember.id}}).then(introEntry => {
+				if(introEntry){
+					IntroMade.destroy({truncate: true, cascade: true, restartIdentity: true, where: {userID: newMember.id} });
+					IntroMade.sync();
+					introsMadeIDSet.delete(newMember.id);
+				}
+			})
 		}
 	}
 })
