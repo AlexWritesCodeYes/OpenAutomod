@@ -31,15 +31,11 @@ function formatDate(dateString){
 }
 
 async function grabMany(channel, options, msgList){
-	//let messageList = [];
 	let lastID = options.before;
-	//let limit = 101;
-	//let counter = 99;
 	let breakCondition = false;
 	do{
 		if(typeof lastID != `undefined`){
 			options = { limit: 100, before: lastID};
-			//console.log(lastID);
 			channel.messages.fetch(options).then(messages => {
 				console.log(`grabbed ${messages.size} messages before ${options.before}`);
 			})
@@ -49,7 +45,6 @@ async function grabMany(channel, options, msgList){
 		}
 
 		const channelMessages = await channel.messages.fetch(options);
-		//console.log(`I GOT ${channelMessages.size} MESSAGES`);
 
 		let myMessageList = [];
 
@@ -70,7 +65,6 @@ async function grabMany(channel, options, msgList){
 				})
 			}
 			messageString = messageString + "\n----------\n";
-			//console.log(messageString);
 			myMessageList.push(messageString);
 		})
 
@@ -80,8 +74,7 @@ async function grabMany(channel, options, msgList){
 		}
 		else{
 			const newMessages = await grabMany(channel, options, myMessageList);
-			//console.log(`newMessages: ${newMessages}`);
-			
+
 			newMessages.forEach(msg => {
 				myMessageList.push(msg);
 			});
@@ -89,12 +82,10 @@ async function grabMany(channel, options, msgList){
 			console.log(`total length: ${myMessageList.length}`);
 			if(newMessages.length < 100){
 				console.log(`returning ${myMessageList.length} messages`);
-				//counter = limit;
 				return myMessageList;
 			}
 		}
 		
-		//counter = counter + 1;
 	} while(true);
 }
 
