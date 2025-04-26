@@ -69,14 +69,15 @@ module.exports = {
 				})
 			}
 			if(subCommand == 'all'){
-				var message = "====Categories====\n"
+				var message = "=====Categories=====\n"
 				Categories.findAll().then(categories => {
+					console.log(`${categories.length} categories`);
 					categories.forEach(category => {
 						message = message + "name: " + category.name + " | ID: " + category.categoryID + "\n";
 					})
+					message = message + "====================";
+					return interaction.reply({content: message, ephemeral: false});
 				})
-				message = message + "====================";
-				return interaction.reply({content: message, ephemeral: false});
 			}
 		}
 };
