@@ -33,6 +33,8 @@ function formatDate(dateString){
 async function grabMany(channel, options, msgList){
 	let lastID = options.before;
 	let breakCondition = false;
+	const hardLimit = 999;
+	var counter = 0;
 	do{
 		if(typeof lastID != `undefined`){
 			options = { limit: 100, before: lastID};
@@ -51,9 +53,12 @@ async function grabMany(channel, options, msgList){
 		if(channelMessages.size == 100){
 			lastID = channelMessages.last().id;
 			options = { limit: 100, before: lastID};
+			counter += 100;
 		}
 		else{
-			console.log(`only ${channelMessages.size} to go!`);
+			let sizeLeft = channelMessages.size;
+			counter += sizeLeft;
+			console.log(`only ${sizeLeft} to go!`);
 			breakCondition = true;
 		}
 
@@ -78,6 +83,15 @@ async function grabMany(channel, options, msgList){
 			newMessages.forEach(msg => {
 				myMessageList.push(msg);
 			});
+
+			if(counter >= hardLimit){
+				Channels.findOne({where: {name: "log"} }).then(logchannel => {
+					let logChannelID = logchannel.channelID;
+					let message = "Either you somehow pointed this command at the wrong channel or the conversation in that welcome channel went on for way too long. That's over a thousand messages. Either way, please don't do it again.";
+					client.channels.cache.get(logChannelID).send(message);
+				})
+				return myMessageList;
+			}
 
 			console.log(`total length: ${myMessageList.length}`);
 			if(newMessages.length < 100){
