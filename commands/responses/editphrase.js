@@ -19,10 +19,11 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
 module.exports = {
@@ -41,6 +42,22 @@ module.exports = {
 					option.setName('newphrase')
 						.setDescription('The new phrase to replace this one with')
 						.setRequired(false))
+				.addNumberOption(option => 
+					option.setName('list')
+						.setDescription('blacklist or whitelist')
+						.setRequired(false)
+						.addChoices(
+							{ name: 'blacklist', value: 0 },
+							{ name: 'whitelist', value: 1 },
+						))
+				.addNumberOption(option => 
+					option.setName('regex')
+						.setDescription('regex entry')
+						.setRequired(false)
+						.addChoices(
+							{ name: 'normal phrase', value: 0 },
+							{ name: 'regex phrase', value: 1 },
+						))
 				.addStringOption(option => 
 					option.setName('newreply')
 						.setDescription('The new reply to the phrase')
@@ -71,6 +88,22 @@ module.exports = {
 					option.setName('newphrase')
 						.setDescription('The new phrase to replace this one with')
 						.setRequired(false))
+				.addNumberOption(option => 
+					option.setName('list')
+						.setDescription('blacklist or whitelist')
+						.setRequired(false)
+						.addChoices(
+							{ name: 'blacklist', value: 0 },
+							{ name: 'whitelist', value: 1 },
+						))
+				.addNumberOption(option => 
+					option.setName('regex')
+						.setDescription('regex entry')
+						.setRequired(false)
+						.addChoices(
+							{ name: 'normal phrase', value: 0 },
+							{ name: 'regex phrase', value: 1 },
+						))
 				.addStringOption(option => 
 					option.setName('newreply')
 						.setDescription('The new reply to the phrase')
@@ -114,6 +147,8 @@ module.exports = {
 				}
 
 				const newphrase = interaction.options.getString('newphrase');
+				const listOpt = interaction.options.getNumber('list');
+				const regexOpt = interaction.options.getNumber('regex');
 				const newreply = interaction.options.getString('newreply');
 				const deletion = interaction.options.getBoolean('deletion');
 				const timeout = interaction.options.getString('timeout');
@@ -122,6 +157,8 @@ module.exports = {
 				var modReply = false;
 				var modDelete = false;
 				var modTimeout = false;
+				var modList = false;
+				var modReg = false;
 
 				if(newphrase){
 					modPhrase = true;
@@ -187,11 +224,39 @@ module.exports = {
 						Phrases.update({timeout: timeoutVal}, {where: {phrase: phraseString}});
 					}
 				}
+				if(listOpt)
+				{
+					modList = true;
+
+					if(subCommand == 'id'){
+						Phrases.update({blackwhite: listOpt}, {where: {id: idNum}});
+					}
+					else{
+						Phrases.update({blackwhite: listOpt}, {where: {phrase: phraseString}});
+					}
+				}
+				if(regexOpt)
+				{
+					modReg = true;
+					
+					if(subCommand == 'id'){
+						Phrases.update({regex: regexOpt}, {where: {id: idNum}});
+					}
+					else{
+						Phrases.update({regex: regexOpt}, {where: {phrase: phraseString}});
+					}
+				}
 
 				var message = "The following was modified: {";
 
 				if(modPhrase){
 					message = message + " phrase ";
+				}
+				if(modList){
+					message = message + " list option ";
+				}
+				if(modReg){
+					message = message + " regex option ";
 				}
 				if(modReply){
 					message = message + " reply ";
