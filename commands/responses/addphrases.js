@@ -19,10 +19,11 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
 module.exports = {
@@ -33,10 +34,22 @@ module.exports = {
 			option.setName('phrase')
 				.setDescription('The phrase to add')
 				.setRequired(true))
-		.addBooleanOption(option =>
+		.addNumberOption(option => 
+			option.setName('list')
+				.setDescription('blacklist or whitelist')
+				.setRequired(true)
+				.addChoices(
+					{ name: 'blacklist', value: 0 },
+					{ name: 'whitelist', value: 1 },
+				))
+		.addNumberOption(option => 
 			option.setName('regex')
-				.setDescription('Is this a regex string?')
-				.setRequired(true))
+				.setDescription('regex entry')
+				.setRequired(true)
+				.addChoices(
+					{ name: 'normal phrase', value: 0 },
+					{ name: 'regex phrase', value: 1 },
+				))
 		.addStringOption(option =>
 			option.setName('response')
 				.setDescription('What should the message response, if any, be?')
@@ -56,11 +69,12 @@ module.exports = {
 						{name: 'One day', value: 'day'},
 					)),
 		execute(interaction){
-			const badPhrase = interaction.options.getString('phrase').trim().toLowerCase();
+			const thePhrase = interaction.options.getString('phrase').trim().toLowerCase();
+			const listOpt = interaction.options.getNumber('list');
+			const regexOpt = interaction.options.getNumber('regex');
 			const wordResponse = interaction.options.getString('response');
 			const deletion = interaction.options.getBoolean('delete');
 			const timeout = interaction.options.getString('timeout');
-			const regex = interaction.options.getBoolean('regex');
 
 			let deleteVal = 0;
 			if(deletion == true){ deleteVal = 1; }
@@ -76,25 +90,21 @@ module.exports = {
 				timeoutVal = 24 * 60 * 60 * 1000;
 			}
 
-			let regexVal = 0;
-			if(regex){
-				regexVal = 1;
-			}
-
 			try{
 				Phrases.create({
-					phrase: badPhrase,
+					phrase: thePhrase,
+					blackwhite: listOpt,
+					regex: regexOpt,
 					response: wordResponse,
 					delete: deleteVal,
 					timeout: timeoutVal,
-					regex: regexVal,
 				});
 				Phrases.sync();
 
-				return interaction.reply({content: `Succesfully added ||${badPhrase}||`, ephemeral: false});
+				return interaction.reply({content: `Succesfully added ||${thePhrase}||`, ephemeral: false});
 			}
 			catch(error){
-				return interaction.reply({content: `Something went wrong with adding ${badPhrase}: ${error}.`, ephemeral: false});
+				return interaction.reply({content: `Something went wrong with adding ${thePhrase}: ${error}.`, ephemeral: false});
 			}
 		},
 };
