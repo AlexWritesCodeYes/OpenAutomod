@@ -37,6 +37,8 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
@@ -357,7 +359,8 @@ commandsEmbedPageTwo = new EmbedBuilder()
 	)
 	.setFooter({text: 'Run the /help command to find out more about these commands.'});
 
-let badPhrases = new Set();
+let badPhrases = new Map();
+let goodPhrases = new Map();
 let badHosts = new Set();
 let phrasesBlackList = new Set();
 let mentionBlackList = new Set();
@@ -530,11 +533,17 @@ client.on(Events.InteractionCreate, async interaction => {
 			Phrases.sync();
 
 			console.log("updating local phrases list");
-			badPhrases = new Set();
+			badPhrases = new Map();
+			goodPhrases = new Map();
 			Phrases.findAll().then(phrases => {
 				console.log(`${phrases.length} phrases in the db`);
 				phrases.forEach(entry => {
-					badPhrases.add(entry.phrase);
+					if(entry.blackwhite == 0){
+						badPhrases.set(entry.phrase, entry.regex);
+					}
+					else if(entry.blackwhite == 1){
+						goodPhrases.set(entry.phrase, entry.regex);
+					}
 				})
 			})
 		}
@@ -1102,7 +1111,8 @@ client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 })
 
 //checks if a given phrase exists in a list of words
-function phraseFinder(wordList, phrase){
+function phraseFinder(wordList, phrase, regex){
+	console.log("wordlist " + wordList);
 	let splitphrase = phrase.split(' ');
 	const phraseLength = splitphrase.length;
 	if(phraseLength > 1){
@@ -1111,19 +1121,29 @@ function phraseFinder(wordList, phrase){
 
 		let foundit = false;
 		while(lastIndex < wordList.length){
-			if(wordList[firstIndex] == splitphrase[0]){
-				let breakCondition = false;
-				for(let i = 1; i < phraseLength; i++){
-					if(wordList[firstIndex + i] != splitphrase[i]){
-						breakCondition = true;
-					}
-					if(breakCondition){ break; }
-				}
-				if(!breakCondition){
+			if(regex){
+				if(phrase.test(wordList[firstIndex])){
 					console.log("Found the phrase! The first word is at index " + firstIndex);
 					foundit = true;
+					break;
 				}
 			}
+			else{
+				if(wordList[firstIndex] == splitphrase[0]){
+					let breakCondition = false;
+					for(let i = 1; i < phraseLength; i++){
+						if(wordList[firstIndex + i] != splitphrase[i]){
+							breakCondition = true;
+						}
+						if(breakCondition){ break; }
+					}
+					if(!breakCondition){
+						console.log("Found the phrase! The first word is at index " + firstIndex);
+						foundit = true;
+					}
+				}
+			}
+			
 			
 			if(foundit){
 				return foundit;
@@ -1137,6 +1157,17 @@ function phraseFinder(wordList, phrase){
 		}
 	}
 	else{
+		if(regex){
+			console.log("phrase: " + phrase);
+			for(let word of wordList){
+				console.log("matching word " + word + " phrase " + phrase + " " + word.match(phrase));
+				let matched = word.match(phrase);
+				if(matched){
+					return true;
+				}
+			}
+			return false;
+		}
 		return wordList.includes(phrase);
 	}
 }
@@ -1190,49 +1221,54 @@ client.on(Events.MessageCreate, message => {
 		}
 		if(![...phrasesBlackList].includes(message.channel.id)){
 			let splitup = message.content.toLowerCase().replace(/[.,\/#!?$%\^&\*;:{}=\-_`~()]/g,"").split(' ');
-			let splitupSet = new Set();
-			splitup.forEach(entry => {
-				splitupSet.add(entry);
-			});
-			let badphrases = [...badPhrases];
+			let splitupForRegex = message.content.toLowerCase().split(' ');
 
-			let foundBadPhrases = new Set();
-			for(let phrase of badphrases){
-				if(phraseFinder(splitup, phrase)){
-					console.log("Found a bad phrase!");
+			let keepGoing = true;
+			for(let [key, value] of goodPhrases){
+				if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){
+					console.log("Found a whitelisted phrase! Skipping further processing");
+					keepGoing = false;
+				}
+			}
+			if(keepGoing)
+			{
+				for(let [key, value] of badPhrases){
+					if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){
+						console.log("Found a bad phrase!");
 
-					const respondTo = Phrases.findOne({where: {phrase: phrase} });
+						const respondTo = Phrases.findOne({where: {phrase: key} });
 
-					respondTo.then(entry => {
-						let logMessage = `A user posted the word or phrase ||${entry.phrase}|| in ${message.channel}.`;
-						let reply = entry.response;
+						respondTo.then(entry => {
+							let logMessage = `A user posted the word or phrase ||${entry.phrase}|| in ${message.channel}.`;
+							let reply = entry.response;
 
-						if(reply != null && reply.length > 0){
-							message.reply({content: reply, ephemeral: false});
-						}
+							if(reply != null && reply.length > 0){
+								message.reply({content: reply, ephemeral: false});
+							}
 
-						const deletion = entry.delete;
-						const timeout = entry.timeout;
+							const deletion = entry.delete;
+							const timeout = entry.timeout;
 
-						if(deletion == 1 && timeout > 0){
-							logMessage = logMessage + " The message containing it was deleted and the user who posted it was timed out.";
-							message.member.timeout(timeout, 'Posting a bad word or phrase'); //TODO: make the reason customizeable
-							message.delete();
-						}
-						else if(timeout > 0){
-							message.member.timeout(timeout, 'Posting a bad word or phrase'); //TODO: make the reason customizeable
-							logMessage = logMessage + ' The user who posted the message was timed out.';
-						}
-						else if(deletion == 1){
-							message.delete();
-							logMessage = logMessage + ' The message containing it was deleted.';
-						}
+							if(deletion == 1 && timeout > 0){
+								logMessage = logMessage + " The message containing it was deleted and the user who posted it was timed out.";
+								message.member.timeout(timeout, 'Posting a bad word or phrase'); //TODO: make the reason customizeable
+								message.delete();
+							}
+							else if(timeout > 0){
+								message.member.timeout(timeout, 'Posting a bad word or phrase'); //TODO: make the reason customizeable
+								logMessage = logMessage + ' The user who posted the message was timed out.';
+							}
+							else if(deletion == 1){
+								message.delete();
+								logMessage = logMessage + ' The message containing it was deleted.';
+							}
 
-						Channels.findOne({where: {name: "log"} }).then(logchannel => {
-							let logChannelID = logchannel.channelID;
-							client.channels.cache.get(logChannelID).send(logMessage);
+							Channels.findOne({where: {name: "log"} }).then(logchannel => {
+								let logChannelID = logchannel.channelID;
+								client.channels.cache.get(logChannelID).send(logMessage);
+							})
 						})
-					})
+					}
 				}
 			}
 		}
@@ -1520,10 +1556,16 @@ client.once(Events.ClientReady, c => {
 			}
 		})
 	})
-	badPhrases = new Set();
+	badPhrases = new Map();
+	goodPhrases = new Map();
 	Phrases.findAll().then(phrases => {
 		phrases.forEach(phrase => {
-			badPhrases.add(phrase.phrase);
+			if(phrase.blackwhite == 0){
+				badPhrases.set(phrase.phrase, phrase.regex);
+			}
+			else if(phrase.blackwhite == 1){
+				goodPhrases.set(phrase.phrase, phrase.regex);
+			}
 		})
 	})
 	mentionMessages = [];
