@@ -19,10 +19,11 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
 module.exports = {
@@ -68,18 +69,22 @@ module.exports = {
 				}
 
 				let phrase = entry.phrase;
+				let list = entry.blackwhite;
+				let regex = entry.regex;
 				let reply = entry.response;
 				let deleteThis = entry.delete;
 				let timeoutUser = entry.timeout;
-				let regexVal = entry.regex;
 
-				var message;
-				if(regexVal == 1){
-					message = `regex: ||${phrase}|| \nreply: ${reply} \n`;
+				let message = `phrase: ||${phrase}|| \nreply: ${reply} \n`;
+				let listString = "blacklist";
+				if(list == 1){
+					listString = "whitelist";
 				}
-				else{
-					message = `phrase: ||${phrase}|| \nreply: ${reply} \n`;
+				let regexString = "false";
+				if(regex == 1){
+					regexString = "true";
 				}
+				message = message + "list: " + listString + " | regex: " + regexString + "\n";
 				message = message + "response: ";
 				
 				if(deleteThis == 0){
