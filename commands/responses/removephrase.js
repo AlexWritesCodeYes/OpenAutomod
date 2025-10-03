@@ -19,10 +19,11 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
 module.exports = {
