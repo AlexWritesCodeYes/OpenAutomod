@@ -82,7 +82,8 @@ module.exports = {
 					let message = list.length + " channels on the exclusion list \n";
 					list.forEach(entry => {
 						let channel = interaction.guild.channels.cache.find(channel => channel.id === entry.channelID);
-						message = message + "channel name: " + channel.name + " | id: " + entry.channelID + " | category: " + entry.category.replace(' ', ', ') + "\n";
+						message = message + "Database ID: " + entry.id + " | channel name: " + channel.name + " | channel id: ";
+						message = message + entry.channelID + " | category: " + entry.category.replace(' ', ', ') + "\n";
 					})
 
 					return interaction.reply({content: message, ephemeral: false});
