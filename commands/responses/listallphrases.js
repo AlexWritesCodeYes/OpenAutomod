@@ -19,10 +19,11 @@ const Phrases = sequelize.define('phrases', {
 		type: Sequelize.STRING,
 		unique: true,
 	},
+	blackwhite: Sequelize.TINYINT,
+	regex: Sequelize.TINYINT,
 	response: Sequelize.TEXT,
 	delete: Sequelize.TINYINT,
 	timeout: Sequelize.INTEGER,
-	regex: Sequelize.TINYINT,
 });
 
 module.exports = {
@@ -43,15 +44,7 @@ module.exports = {
 					Phrases.sync({force: true}); //recreates the table, resetting the id
 				}
 				list.forEach(entry => {
-					message = message + entry.id + ") ";
-					if(entry.regex == 1){
-						message = message + "regex: ||" + entry.phrase + "|| | reply: ";
-					}
-					else{
-						console.log(entry.regex);
-						message = message + "phrase: ||" + entry.phrase + "|| | reply: ";
-					}
-					
+					message = message + entry.id + ") phrase: ||" + entry.phrase + "|| | reply: ";
 					let reply = entry.response;
 					if(reply == null || reply.length == 0){
 						message = message + "N/A";
@@ -59,6 +52,17 @@ module.exports = {
 					else{
 						message = message + reply;
 					}
+					let list = entry.blackwhite;
+					let regex = entry.regex;
+					let listString = "blacklist";
+					if(list == 1){
+						listString = "whitelist";
+					}
+					let regexString = "false";
+					if(regex == 1){
+						regexString = "true";
+					}
+					message = message + "list: " + listString + " | regex: " + regexString + "\n";
 					message = message + "\nresponse: "
 					
 					if(entry.delete == 0){
@@ -117,7 +121,7 @@ module.exports = {
 						startingIndex = startingIndex + currPageTrimmed.length - 1; 
 					}
 
-					return interaction.reply({content: "the list is long, so I split it into multiple messages. Please reduce the number of entries so Discord doesn't get mad at the developer :(."})
+					return interaction.reply({content: "the list is long, so I split it into multiple messages. Please reduce the number of entries so Discord doesn't get mad at the developer </3."})
 				}
 
 			})
