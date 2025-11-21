@@ -1,4 +1,4 @@
-const { ChannelType, SlashCommandBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, SlashCommandBuilder } = require('discord.js');
 const Sequelize = require('sequelize');
 
 const sequelize = new Sequelize('database', 'user', 'password', {
@@ -15,14 +15,6 @@ const Channels = sequelize.define('channels', {
 		unique: true,
 	},
 	channelID: Sequelize.TEXT,
-});
-
-const Archived = sequelize.define('archived', { //database of archived channels
-	channelID: {								//double check this database before allowing /delete
-		type: Sequelize.TEXT,
-		unique: true,
-	},
-	name: Sequelize.STRING,
 });
 
 function formatDate(dateString){
@@ -106,7 +98,7 @@ async function grabMany(channel, options, msgList){
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('archive')
-		.setDescription('logs all messages in a welcome channel')
+		.setDescription('logs all messages in a welcome channel then deletes the channel')
 		.addChannelOption(option =>
 			option.setName('channel')
 				.setDescription('The welcome channel to archive')
@@ -116,11 +108,26 @@ module.exports = {
 		const channel = interaction.options.getChannel('channel');
 		const channelName = channel.name;
 		const channelID = channel.id.toString();
+
 		if(channelName.slice(0, 7) != "welcome"){
 			return interaction.reply({ content: `${channelName} is not a welcome channel. Please do not do that.`,
 			 ephemeral: false });
 		}
 		else{
+			var yesCustomId = "yes_button-" + channelID; //this is such a stupid hack
+			var cancelCustomId = "cancel_button-" + channelID;
+			let buttons = new ActionRowBuilder();
+			buttons.addComponents(
+				new ButtonBuilder()
+					.setCustomId(yesCustomId) //seriously this is dumb
+					.setStyle(ButtonStyle.Success)
+					.setLabel('Yes'),
+				new ButtonBuilder()
+					.setCustomId(cancelCustomId)
+					.setStyle(ButtonStyle.Danger)
+					.setLabel('Cancel'),
+			);
+
 			Channels.findOne({where: {name: "log"} }).then(logchannel => {
 				let logChannelID = logchannel.channelID;
 				console.log("log channel " + logChannelID);
@@ -128,8 +135,6 @@ module.exports = {
 				
 				let msgList = [];
 				msgList = grabMany(channel, {limit: 100}, msgList);
-
-				//console.log(`msgList: ${msgList}`);
 
 				msgList.then(messageList => {
 					console.log(channel.name);
@@ -153,27 +158,7 @@ module.exports = {
 					}
 				});
 
-				try{
-					Archived.findOne({where: {channelID: channelID}}).then(arChnl => {
-						if(arChnl){
-							logChannel.send(channelName + " has already been archived!");
-						}
-						else{
-							Archived.create({
-								channelID: channelID,
-								name: channelName,
-							});
-							Archived.sync();
-						}
-					});
-				}
-				catch(error){
-					let errMsg = "Something went wrong adding this channel to the database of archived channels. Tell the dev to fix it. Here's the error: " + error;
-					logChannel.send(errMsg);
-				}
-
-				//let messageList = []; //placeholder
-				return interaction.reply({ content: `Success! ${channelName} was archived in the designated log channel.`, ephemeral: false });
+				return interaction.reply({ content: `Are you sure you want to delete #${channelName}?`, components: [buttons], ephemeral:false });
 			})
 		}
 	},
