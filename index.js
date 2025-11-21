@@ -1,5 +1,6 @@
 const {Client, Collection, Events, EmbedBuilder, ChannelType, Partials, PermissionsBitField, GatewayIntentBits} = require("discord.js");
 const {token} = require('./config.json');
+const {guildId} = require('./config.json');
 const Sequelize = require('sequelize');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -190,14 +191,6 @@ const Messages = sequelize.define('messagetexts', {
 		unique: true,
 	},
 	text: Sequelize.TEXT,
-});
-
-const Archived = sequelize.define('archived', { //database of archived channels
-	channelID: {								//double check this database before allowing /delete
-		type: Sequelize.TEXT,
-		unique: true,
-	},
-	name: Sequelize.STRING,
 });
 
 for (const folder of commandFolders) {
@@ -400,7 +393,7 @@ client.on(Events.InteractionCreate, async interaction => {
 	if(interaction.isButton()){
 		if(interaction.customId.toString().slice(0, 11) === 'yes_button-'){
 			const channelID = interaction.customId.toString().slice(11); //embedding the channel id in the interaction id is a stupid hack
-			const channel = client.channels.cache.get(channelID);		//but it works! tm
+			const channel = client.channels.cache.get(channelID);		 //but it works! (tm)
 			const channelName = channel.name;
 
 			channel.delete();
@@ -412,8 +405,6 @@ client.on(Events.InteractionCreate, async interaction => {
 					msg.delete();
 				});
 			});
-			
-			//return interaction.message.delete();
 		}
 		else if(interaction.customId.toString().slice(0, 14) === 'cancel_button-'){
 			const channelID = interaction.customId.toString().slice(14); //embedding the channel id in the interaction id is a stupid hack
@@ -427,7 +418,6 @@ client.on(Events.InteractionCreate, async interaction => {
 					msg.delete();
 				});
 			});
-			//return interaction.message.delete();
 		}
 		else{
 			return interaction.reply({ content: 'Error: unknown button ID', ephemeral: true });
@@ -452,11 +442,6 @@ client.on(Events.InteractionCreate, async interaction => {
 		if(cmdName == 'welcome'){
 			console.log("Syncing welcome settings db");
 			Welcome.sync();
-		}
-
-		if(cmdName == 'archive' || cmdName == 'delete'){
-			console.log("Syncing the onboarding archival db");
-			Archived.sync();
 		}
 
 		if(cmdName == 'modrole' || cmdName == 'entryrole'){
@@ -1113,7 +1098,7 @@ client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 //checks if a given phrase exists in a list of words
 function phraseFinder(wordList, phrase, regex){
 	console.log("wordlist " + wordList);
-	let splitphrase = phrase.split(' ');
+	let splitphrase = phrase.toLowerCase().split(' ');
 	const phraseLength = splitphrase.length;
 	if(phraseLength > 1){
 		let firstIndex = 0;
@@ -1168,7 +1153,7 @@ function phraseFinder(wordList, phrase, regex){
 			}
 			return false;
 		}
-		return wordList.includes(phrase);
+		return wordList.includes(phrase.toLowerCase());
 	}
 }
 
@@ -1225,7 +1210,7 @@ client.on(Events.MessageCreate, message => {
 
 			let keepGoing = true;
 			for(let [key, value] of goodPhrases){
-				if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){
+				if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){ //key: the phrase. value: regex boolean
 					console.log("Found a whitelisted phrase! Skipping further processing");
 					keepGoing = false;
 				}
@@ -1233,7 +1218,7 @@ client.on(Events.MessageCreate, message => {
 			if(keepGoing)
 			{
 				for(let [key, value] of badPhrases){
-					if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){
+					if(phraseFinder(splitup, key, value) || phraseFinder(splitupForRegex, key, value)){ //key: the phrase. value: regex boolean
 						console.log("Found a bad phrase!");
 
 						const respondTo = Phrases.findOne({where: {phrase: key} });
@@ -1536,7 +1521,6 @@ client.once(Events.ClientReady, c => {
 	IntroMade.sync();
 	Categories.sync();
 	Messages.sync();
-	Archived.sync();
 	
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
@@ -1873,8 +1857,14 @@ client.on(Events.GuildMemberAdd, member => {
 				if(welcomeCategoryID){ //the welcome category ID has been set
 					member.guild.channels.fetch(welcomeCategoryID).then(category => {
 						if(category){ //the welcome category ID matches that of an existing category
+							let channelName = "Welcome-" + memberName;
+							member.guild.channels.find(c => c.name === channelName).then(channel => { //if they left and rejoined, delete their old welcome channel
+								if(channel){
+									channel.delete();
+								}
+							})
 							member.guild.channels.create({
-								name: "Welcome-" + memberName,
+								name: channelName,
 								type: ChannelType.GuildText,
 								parent: welcomeCategoryID,
 								permissionOverwrites: [{
@@ -1978,31 +1968,22 @@ client.on(Events.GuildMemberRemove, member => {
 	})
 })
 
-//this is the other half of the /delete command. it was less work to put this code here instead of in the /delete command code
+//this is the other half of the /archive command. it was less work to put this code here instead of in the /archive command code
 client.on(Events.ChannelDelete, channel => {
 	const channelName = channel.name;
 	console.log(channelName + " was deleted");
 	if(channelName.slice(0, 7) == "welcome"){
-		Archived.sync();
 		let message = "Synced template ";
-		Template.findOne({where: {name: "default"} }).then(entry => {
-			if(entry){
-				let templateURL = entry.url;
-				interaction.guild.client.fetchGuildTemplate(templateURL).then(template => {
-					template.sync();
-					console.log("synced template " + template.name);
-
-					message = message + template.name;
-				})
-			}
-			else{
-				message = "Server template has not been set! Try setting it with the 'template set' command.";
-			}
-
-			Channels.findOne({where: {name: "log"} }).then(logchannel => {
-				let logChannelID = logchannel.channelID;
-				client.channels.cache.get(logChannelID).send(message);
+		client.guilds.cache.get(guildId).fetchTemplates().then(templates => {
+			templates.forEach(template => {
+				template.sync();
+				console.log("synced template " + template.name);
+				message = message + template.name;
 			})
+		})
+		Channels.findOne({where: {name: "log"} }).then(logchannel => {
+			let logChannelID = logchannel.channelID;
+			client.channels.cache.get(logChannelID).send(message);
 		})
 	}
 })
