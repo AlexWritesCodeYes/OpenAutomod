@@ -245,8 +245,7 @@ welcomeEmbed = new EmbedBuilder()
 	.setTitle("Welcome Channel Help Menu")
 	.setDescription("When a new person joins the server, a secret welcome channel that only they (and the mods) can see. The following commands manage those channels, as well as the notification system for when a new user introduces themselves")
 	.addFields(
-		{name: "/archive", value: "logs all messages in a given welcome channel to the log channel for this bot. **Run this command __before__ the /delete command.**", inline: false},
-		{name: "/delete", value: "deletes a welcome channel. this command, for safety reasons, only works on welcome channels.", inline: false},
+		{name: "/archive", value: "logs all messages in a given welcome channel to the log channel for this bot, then (optionally) deletes the welcome channel.", inline: false},
 		{name: "/welcome", value: "enables or disables the creation of welcome channels upon a user joining, or gets the current configuration for this setting.", inline: false},
 		{name: "/entryrole", value: "gets or sets the role that grants full access to the server as a whole. This is part of the introduction notification system", inline: false},
 		{name: "/intronotify", value: "enables, disables, or gets the current settings of the new user intro notification system. When this is on, moderators will be notified when a new introduction is made.", inline: false},
