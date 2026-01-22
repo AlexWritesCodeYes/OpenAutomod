@@ -317,7 +317,6 @@ commandsEmbedPageOne = new EmbedBuilder()
 		{name: "/archive", value: "👋 Welcome", inline: true},
 		{name: "/blacklist", value: "⚙️ Config", inline: true},
 		{name: "/categories", value: "⚙️ Config", inline: true},
-		{name: "/delete", value: "👋 Welcome", inline: true},
 		{name: "/delphrase", value: "↔️ Responses", inline: true},
 		{name: "/entryrole", value: "👋 Welcome", inline: true},
 		{name: "/exclude", value: "⚙️ Config", inline: true},
@@ -1857,11 +1856,12 @@ client.on(Events.GuildMemberAdd, member => {
 					member.guild.channels.fetch(welcomeCategoryID).then(category => {
 						if(category){ //the welcome category ID matches that of an existing category
 							let channelName = "Welcome-" + memberName;
-							member.guild.channels.find(c => c.name === channelName).then(channel => { //if they left and rejoined, delete their old welcome channel
-								if(channel){
-									channel.delete();
-								}
-							})
+							//this breaks the welcome channel function. commenting it out until I can fix it
+							//member.guild.channels.find(c => c.name === channelName).then(channel => { //if they left and rejoined, delete their old welcome channel
+							//	if(channel){
+							//		channel.delete();
+							//	}
+							//})
 							member.guild.channels.create({
 								name: channelName,
 								type: ChannelType.GuildText,
