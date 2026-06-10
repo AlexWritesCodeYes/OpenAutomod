@@ -36,7 +36,7 @@ function specialCharHandler(entry, currIndex){
 			}
 		}
 		else{
-			if((entry[i] === "*" || entry[i] === "_") && entry[i-1] != "\\"){ 
+			if((entry[i] === "*" || entry[i] === "_") && entry[i] != "\\"){ 
 				result = result.slice(0, i) + "\\" + result.slice(i);
 				specialCharHandler(result, i);
 			}
