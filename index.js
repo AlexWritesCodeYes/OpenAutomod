@@ -1095,7 +1095,7 @@ client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 
 //checks if a given phrase exists in a list of words
 function phraseFinder(wordList, phrase, regex){
-	console.log("wordlist " + wordList);
+	//console.log("wordlist " + wordList);
 	let splitphrase = phrase.toLowerCase().split(' ');
 	const phraseLength = splitphrase.length;
 	if(phraseLength > 1){
@@ -1105,14 +1105,14 @@ function phraseFinder(wordList, phrase, regex){
 		let foundit = false;
 		while(lastIndex < wordList.length){
 			if(regex){
-				if(phrase.test(wordList[firstIndex])){
+				if(phrase.toLowerCase().test(wordList[firstIndex])){
 					console.log("Found the phrase! The first word is at index " + firstIndex);
 					foundit = true;
 					break;
 				}
 			}
 			else{
-				if(wordList[firstIndex] == splitphrase[0]){
+				if(wordList[firstIndex].toLowerCase() == splitphrase[0]){
 					let breakCondition = false;
 					for(let i = 1; i < phraseLength; i++){
 						if(wordList[firstIndex + i] != splitphrase[i]){
@@ -1144,7 +1144,7 @@ function phraseFinder(wordList, phrase, regex){
 			console.log("phrase: " + phrase);
 			for(let word of wordList){
 				console.log("matching word " + word + " phrase " + phrase + " " + word.match(phrase));
-				let matched = word.match(phrase);
+				let matched = word.toLowerCase().match(phrase.toLowerCase());
 				if(matched){
 					return true;
 				}
@@ -1747,8 +1747,17 @@ function nameHandlerHelper(name){
 	blacklist.forEach(entry => {
 		const entryText = entry.entry;
 		if(entry.regex == 1){
-			const regex = new RegExp(entryText);
-			doubleCheck = regex.test(name);
+			var isValidRegex = true;
+			try{
+				new RegExp(entryText);
+			}
+			catch(e) {
+			    isValidRegex = false;
+			}
+			if(isValidRegex){
+				const regex = new RegExp(entryText);
+				doubleCheck = regex.test(name);
+			}
 		}
 		else{
 			doubleCheck = name.includes(entryText);
@@ -1760,8 +1769,17 @@ function nameHandlerHelper(name){
 		whitelist.forEach(entry => {
 			const entryText = entry.entry;
 			if(entry.regex == 1){
-				const regex = new RegExp(entryText);
-				takeAction = !(regex.test(name));
+				var isValidRegex = true;
+				try{
+					new RegExp(entryText);
+				}
+				catch(e) {
+				    isValidRegex = false;
+				}
+				if(isValidRegex){
+					const regex = new RegExp(entryText);
+					takeAction = !(regex.test(name));
+				}
 			}
 			else{
 				takeAction = !(name.includes(entryText));
@@ -1856,12 +1874,10 @@ client.on(Events.GuildMemberAdd, member => {
 					member.guild.channels.fetch(welcomeCategoryID).then(category => {
 						if(category){ //the welcome category ID matches that of an existing category
 							let channelName = "Welcome-" + memberName;
-							//this breaks the welcome channel function. commenting it out until I can fix it
-							//member.guild.channels.find(c => c.name === channelName).then(channel => { //if they left and rejoined, delete their old welcome channel
-							//	if(channel){
-							//		channel.delete();
-							//	}
-							//})
+							let oldChannel = member.guild.channels.cache.find(c => c.name.toLowerCase() === channelName.toLowerCase()) //if they left and rejoined, delete their old welcome channel
+							if(oldChannel){
+								oldChannel.delete();
+							}
 							member.guild.channels.create({
 								name: channelName,
 								type: ChannelType.GuildText,
