@@ -1889,7 +1889,8 @@ client.on(Events.GuildMemberAdd, member => {
 								},
 								{
 									id: member.guild.roles.everyone,
-									deny: [PermissionsBitField.Flags.ViewChannel]
+									allow: [PermissionsBitField.Flags.ViewChannel],
+									deny: [PermissionsBitField.Flags.ReadMessageHistory]
 								}]
 							}).then(channel => {
 								if(welcomeMessage){
@@ -1903,6 +1904,15 @@ client.on(Events.GuildMemberAdd, member => {
 										client.channels.cache.get(logChannelID).send(warning);
 									});
 								}
+								channel.permissionOverwrites.set([{
+									id: member.id,
+									allow: [PermissionsBitField.Flags.ViewChannel,
+											PermissionsBitField.Flags.ReadMessageHistory]
+								},
+								{
+									id: member.guild.roles.everyone,
+									deny: [PermissionsBitField.Flags.ViewChannel]
+								}])
 							});
 						}
 						else{
@@ -1922,7 +1932,8 @@ client.on(Events.GuildMemberAdd, member => {
 								},
 								{
 									id: member.guild.roles.everyone,
-									deny: [PermissionsBitField.Flags.ViewChannel]
+									allow: [PermissionsBitField.Flags.ViewChannel],
+									deny: [PermissionsBitField.Flags.ReadMessageHistory]
 								}]
 							}).then(channel => {
 								if(welcomeMessage){
@@ -1936,6 +1947,15 @@ client.on(Events.GuildMemberAdd, member => {
 										client.channels.cache.get(logChannelID).send(warning);
 									});
 								}
+								channel.permissionOverwrites.set([{
+									id: member.id,
+									allow: [PermissionsBitField.Flags.ViewChannel,
+											PermissionsBitField.Flags.ReadMessageHistory]
+								},
+								{
+									id: member.guild.roles.everyone,
+									deny: [PermissionsBitField.Flags.ViewChannel]
+								}])
 							});
 						}
 					})
@@ -1951,7 +1971,8 @@ client.on(Events.GuildMemberAdd, member => {
 						},
 						{
 							id: member.guild.roles.everyone,
-							deny: [PermissionsBitField.Flags.ViewChannel]
+							allow: [PermissionsBitField.Flags.ViewChannel],
+							deny: [PermissionsBitField.Flags.ReadMessageHistory]
 						}]
 					}).then(channel => {
 						if(welcomeMessage){ //a welcome message has been set
@@ -1965,6 +1986,15 @@ client.on(Events.GuildMemberAdd, member => {
 								client.channels.cache.get(logChannelID).send(warning);
 							});
 						}
+						channel.permissionOverwrites.set([{
+							id: member.id,
+							allow: [PermissionsBitField.Flags.ViewChannel,
+									PermissionsBitField.Flags.ReadMessageHistory]
+						},
+						{
+							id: member.guild.roles.everyone,
+							deny: [PermissionsBitField.Flags.ViewChannel]
+						}])
 					});
 				}
 			}
