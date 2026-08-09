@@ -5,6 +5,6 @@ module.exports = {
 		.setName('masterlist')
 		.setDescription('posts a navigable embed with a list of all commands and their category'),
 	execute(interaction){
-		return interaction.reply({content: "posting the command list", ephemeral: true});
+		return interaction.reply({content: "posting the command list", flags: MessageFlags.Ephemeral });
 	},
 };

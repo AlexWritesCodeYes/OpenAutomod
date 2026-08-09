@@ -61,7 +61,7 @@ module.exports = {
 							message = "Something went wrong with configuring the introduction ping settings. Here's the error: " + error;
 						}
 						finally{
-							return interaction.reply({content: message, ephemeral: true});
+							return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 						}
 					}
 					
@@ -76,7 +76,7 @@ module.exports = {
 			}
 			catch(error){
 				message = `Something went wrong with checking if the introduction pinging is enabled! Here's the error: ${error}`;
-				return interaction.reply({content: message, ephemeral: true});
+				return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 			}
 		}
 		else{
