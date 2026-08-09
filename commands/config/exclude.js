@@ -56,7 +56,7 @@ module.exports = {
 				}
 			}
 			else{
-				return interaction.reply({content: "Please select at least one feature exclusion", ephemeral: true});
+				return interaction.reply({content: "Please select at least one feature exclusion", flags: MessageFlags.Ephemeral });
 			}
 			category = category.trim();
 			const id = channel.id;

@@ -35,7 +35,7 @@ module.exports = {
 
 			affectedRows.then(rows => {
 				if(rows[0] > 0){
-					return interaction.reply({content: `The mod chat channel was changed to ${channel.name}`, ephemeral: true});
+					return interaction.reply({content: `The mod chat channel was changed to ${channel.name}`, flags: MessageFlags.Ephemeral });
 				}
 				else{
 					try{
@@ -45,10 +45,10 @@ module.exports = {
 						});
 						Channels.sync();
 
-						return interaction.reply({content: `The mod chat channel wasn't set in the database, but it is now set to ${channel.name}`, ephemeral: true});
+						return interaction.reply({content: `The mod chat channel wasn't set in the database, but it is now set to ${channel.name}`, flags: MessageFlags.Ephemeral });
 					}
 					catch(error){
-						return interaction.reply({content: `The mod chat channel wasn't set in the database, and something went wrong trying to create an entry for it. Here's the error: ${error}`, ephemeral: true});
+						return interaction.reply({content: `The mod chat channel wasn't set in the database, and something went wrong trying to create an entry for it. Here's the error: ${error}`, flags: MessageFlags.Ephemeral });
 					}
 				}
 			})

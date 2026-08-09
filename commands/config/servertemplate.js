@@ -49,18 +49,18 @@ module.exports = {
 							templateLink = template.url;
 						}
 						message = message + templateLink;
-						return interaction.reply({content: message, ephemeral: true});
+						return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 					})
 				}
 				catch(error){
 					message = `Something went wrong with getting the server template! Here's the error: ${error}`;
-					return interaction.reply({content: message, ephemeral: true});
+					return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 				}
 			}
 			else if(subCommand == 'set'){
 				const url = interaction.options.getString('url');
 				if(url.slice(0,20) != "https://discord.new/"){
-					return interaction.reply({content: `${url} is not a valid server template URL`, ephemeral: true});
+					return interaction.reply({content: `${url} is not a valid server template URL`, flags: MessageFlags.Ephemeral });
 				}
 
 				const affectedRows = Template.update({url: url}, {where: {name: "default"} });
@@ -69,7 +69,7 @@ module.exports = {
 				let message = "The server template url was set to " + url;
 				affectedRows.then(rows => {
 					if(rows[0] > 0){
-						return interaction.reply({content: message, ephemeral: true});
+						return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 					}
 					else{
 						try{
@@ -83,7 +83,7 @@ module.exports = {
 							message = "Something went wrong with setting the server template. Here's the error: " + error;
 						}
 						finally{
-							return interaction.reply({content: message, ephemeral: true});
+							return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 						}
 					}
 				})
@@ -94,23 +94,23 @@ module.exports = {
 					Template.findOne({where: {name: "default"} }).then(entry => {
 						if(entry){
 							if(entry.url.slice(0,20) != "https://discord.new/"){
-								return interaction.reply({content: `The server template was set to "${entry.url}", which is an invalid template url. Please use \`/template set\` to correct this.`, ephemeral: true});
+								return interaction.reply({content: `The server template was set to "${entry.url}", which is an invalid template url. Please use \`/template set\` to correct this.`, flags: MessageFlags.Ephemeral });
 							}
 							interaction.guild.client.fetchGuildTemplate(entry.url).then(template => {
 								template.sync();
 
 								message = message + template.name;
-								return interaction.reply({content: message, ephemeral: true});
+								return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 							})
 						}
 						else{
 							message = "Server template has not been set! Try setting it with the 'set' subcommand.";
-							return interaction.reply({content: message, ephemeral: true});
+							return interaction.reply({content: message, flags: MessageFlags.Ephemeral });
 						}
 					})
 				}
 				catch(error){
-					return interaction.reply({content: `Something went wrong with syncing the server template! Here's the error: ${error}`, ephemeral: true});
+					return interaction.reply({content: `Something went wrong with syncing the server template! Here's the error: ${error}`, flags: MessageFlags.Ephemeral });
 				}
 			}
 		},

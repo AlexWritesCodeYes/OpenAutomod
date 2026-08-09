@@ -408,7 +408,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			const channelID = interaction.customId.toString().slice(14); //embedding the channel id in the interaction id is a stupid hack
 			const channel = client.channels.cache.get(channelID);		//but it works! tm
 
-			interaction.reply({ content: 'Cancelled', fetchReply: true, ephemeral: true }).then((message) => {
+			interaction.reply({ content: 'Cancelled', fetchReply: true, flags: MessageFlags.Ephemeral }).then((message) => {
 				replyID = message.reference.messageId;
 				console.log("reply ID: " + replyID);
 
@@ -418,7 +418,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			});
 		}
 		else{
-			return interaction.reply({ content: 'Error: unknown button ID', ephemeral: true });
+			return interaction.reply({ content: 'Error: unknown button ID', flags: MessageFlags.Ephemeral });
 		}
 
 	}
@@ -795,9 +795,9 @@ client.on(Events.InteractionCreate, async interaction => {
 		} catch (error) {
 			console.error(error);
 			if (interaction.replied || interaction.deferred) {
-				interaction.followUp({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
+				interaction.followUp({ content: `There was an error! Here it is: ${error}`, flags: MessageFlags.Ephemeral });
 			} else {
-				interaction.reply({ content: `There was an error! Here it is: ${error}`, ephemeral: true });
+				interaction.reply({ content: `There was an error! Here it is: ${error}`, flags: MessageFlags.Ephemeral });
 			}
 		}
 	}
