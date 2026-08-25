@@ -1,4 +1,4 @@
-const {Client, Collection, Events, EmbedBuilder, ChannelType, Partials, PermissionsBitField, GatewayIntentBits} = require("discord.js");
+const {Client, Collection, Events, EmbedBuilder, ChannelType, Partials, PermissionsBitField, GatewayIntentBits, MessageFlags} = require("discord.js");
 const {token} = require('./config.json');
 const {guildId} = require('./config.json');
 const Sequelize = require('sequelize');
@@ -143,7 +143,7 @@ const MessageDatabase = sequelize.define('messages', {
 	channelID: Sequelize.STRING,
 });
 
-const Welcome = sequelize.define('welcome', {
+const Systems = sequelize.define('system', {
 	category: {
 		type: Sequelize.STRING,
 		unique: true,
@@ -174,6 +174,15 @@ const Categories = sequelize.define('categories', {
 		unique: true,
 	},
 	categoryID: Sequelize.TEXT,
+});
+
+const Accounts = sequelize.define('accounts', {
+	name: {
+		type: Sequelize.STRING,
+		unique: true,
+	},
+	accountID: Sequelize.TEXT,
+	bot: Sequelize.TINYINT,
 });
 
 //when a user posts an introduction for the first time, they are added to this database
@@ -217,6 +226,7 @@ helpEmbed = new EmbedBuilder()
 		{name: "__↔️: Responses__", value: "The commands for handling the phrase-response system", inline: false},
 		{name: "__💢: Spam__", value: "The commands for configuring the automated spam protection settings", inline: false},
 		{name: "__📜: Names__", value: "The commands for configuring the automated name blocker settings", inline: false},
+		{name: "__🤖: Interop__", value: "The commands for configuring interoperability settings (currently just aegis", inline: false},
 	)
 	.setFooter({text: 'Navigate by clicking the reactions below'});
 
@@ -308,12 +318,26 @@ namesEmbed = new EmbedBuilder()
 	)
 	.setFooter({text: 'Return to the main menu by clicking the ◀️ below'});
 
+interopEmbed = new EmbedBuilder()
+	.setColor("#7F8C8D")
+	.setTitle("Interoperability Help Menu")
+	.setDescription("These commands help configure the settings for commands related to bot interoperability. Currently, this bot is only set up to interact with the aegis bot")
+	.addFields(
+		{name: "/acquireaegis", value: "set the aegis bot account to parse aegis messages from", inline: false},
+		{name: "/aegisbans", value: "check the setting of, or turn on and off, the automatic aegis bans", inline: false},
+		{name: "/aegischannel", value: "get or set the channel in which this bot looks for aegis bot messages to parse for automatic bans"}
+	)
+	.setFooter({text: 'Return to the main menu by clicking the ◀️ below'});
+
 commandsEmbedPageOne = new EmbedBuilder()
 	.setColor("#7F8C8D")
 	.setTitle("Command List Page 1")
 	.setDescription("This is page 1 of the complete list of all commands, and the category they can be found under in the help menu")
 	.addFields(
+		{name: "/acquireaegis", value: "🤖 Interop", inline: true},
 		{name: "/addphrase", value: "↔️ Responses", inline: true},
+		{name: "/aegisbans", value: "🤖 Interop", inline: true},
+		{name: "/aegischannel", value: "🤖 Interop", inline: true},
 		{name: "/archive", value: "👋 Welcome", inline: true},
 		{name: "/blacklist", value: "⚙️ Config", inline: true},
 		{name: "/categories", value: "⚙️ Config", inline: true},
@@ -333,10 +357,7 @@ commandsEmbedPageOne = new EmbedBuilder()
 		{name: "/managehost", value: "💢 Spam", inline: true},
 		{name: "/managenameslist", value: "📜 Names", inline: true},
 		{name: "/mentionconfig", value: "💢 Spam", inline: true},
-		{name: "/modphrase", value: "↔️ Responses", inline: true},
-		{name: "/namesbypass", value: "📜 Names", inline: true},
-		{name: "/suspectedconfig", value: "💢 Spam", inline: true},
-		{name: "/template", value: "⚙️ Config", inline: true}
+		{name: "/modphrase", value: "↔️ Responses", inline: true}
 	)
 	.setFooter({text: 'Run the /help command to find out more about these commands.'});
 
@@ -345,6 +366,9 @@ commandsEmbedPageTwo = new EmbedBuilder()
 	.setTitle("Command List Page 2")
 	.setDescription("This is page 2 of the complete list of all commands, and the category they can be found under in the help menu")
 	.addFields(
+		{name: "/namesbypass", value: "📜 Names", inline: true},
+		{name: "/suspectedconfig", value: "💢 Spam", inline: true},
+		{name: "/template", value: "⚙️ Config", inline: true},
 		{name: "/update", value: "⚙️ Config", inline: true},
 		{name: "/welcome", value: "👋 Welcome"}
 	)
@@ -370,12 +394,15 @@ var raidMentionSpamOnOff;
 var stdSusSpamOnOff;
 var linkSusSpamOnOff;
 var intropingOnOff;
+var aegisbansOnOff;
 
 var introChannelID;
 var welcomeCategoryID;
 var modChannelID;
+var aegisChannelID;
 var entryRoleID;
 var modRoleID;
+var aegisAcctID;
 
 var prevMsg;
 var welcomeMessage;
@@ -439,7 +466,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
 		if(cmdName == 'welcome'){
 			console.log("Syncing welcome settings db");
-			Welcome.sync();
+			Systems.sync();
 		}
 
 		if(cmdName == 'modrole' || cmdName == 'entryrole'){
@@ -454,6 +481,18 @@ client.on(Events.InteractionCreate, async interaction => {
 			Roles.findOne({where: {name: "entry"} }).then(role => {
 				if(role){
 					entryRoleID = role.roleID;
+				}
+			})
+		}
+
+		if(cmdName == 'acquireaegis'){
+			console.log("Syncing the accounts db");
+			Accounts.sync();
+			Accounts.findOne({where: {name: "aegis"}}).then(account => {
+				if(account){
+					if(account.bot == 1){
+						aegisAcctID = account.accountID;
+					}
 				}
 			})
 		}
@@ -496,7 +535,25 @@ client.on(Events.InteractionCreate, async interaction => {
 			})
 		}
 
-		if(cmdName == 'modchannel' || cmdName == 'introchannel'){
+		if(cmdName == 'aegisbans'){
+			console.log("Syncing the systems settings db for aegis");
+			Systems.sync();
+			Systems.findOne({where: {category: "aegis"}}).then(settings => {
+				if(settings){
+					if(settings.onoff == 1){
+						aegisbansOnOff = true;
+					}
+					else{
+						aegisbansOnOff = false;
+					}
+				}
+				else{
+					aegisbansOnOff = false;
+				}
+			})
+		}
+
+		if(cmdName == 'modchannel' || cmdName == 'introchannel' || cmdName == 'aegischannel'){
 			console.log("Syncing the channels db");
 			Channels.sync();
 			Channels.findOne({where: {name: "introductions"}}).then(channel => {
@@ -507,6 +564,11 @@ client.on(Events.InteractionCreate, async interaction => {
 			Channels.findOne({where: {name: "mod"}}).then(channel => {
 				if(channel){
 					modChannelID = channel.channelID;
+				}
+			})
+			Channels.findOne({where: {name: "aegis"}}).then(channel => {
+				if(channel){
+					aegisChannelID = channel.channelID;
 				}
 			})
 		}
@@ -672,6 +734,7 @@ client.on(Events.InteractionCreate, async interaction => {
 				const responseReact = embedMessage.react("↔️");
 				const spamReact = embedMessage.react("💢");
 				const namesReact = embedMessage.react("📜");
+				const interopReact = embedMessage.react("🤖");
 
 				//store the message id in a database or something i dunno
 				const helpMsgEntry = MessageDatabase.findOne({where: {category: 'help'}}).then(entry => {
@@ -811,6 +874,7 @@ async function mainEmbedHelper(message){
 			msg.react("↔️");
 			msg.react("💢");
 			msg.react("📜");
+			msg.react("🤖");
 		});
 	});
 	return;
@@ -875,6 +939,13 @@ async function susEmbedHelper(message){
 	return;
 }
 
+async function interopEmbedHelper(message){
+	message.edit({embeds: [interopEmbed]}).then(msg => {
+		msg.reactions.removeAll().then(() => msg.react("◀️"));
+	});
+	return;
+}
+
 async function cmdListEmbedHelper(message, page){
 	switch(page){
 	case 1:
@@ -931,6 +1002,11 @@ async function messageReactionEmbedHelper(message){
 					else if(react.emoji.name == "📜"){
 						console.log("changing to the names embed");
 						namesEmbedHelper(message);
+						return;
+					}
+					else if(react.emoji.name == "🤖"){
+						console.log("changing to the interop embed");
+						interopEmbedHelper(message);
 						return;
 					}
 				}
@@ -1025,6 +1101,17 @@ async function messageReactionEmbedHelper(message){
 			})
 		}
 		else if(title == "Name Blocker Help Menu"){
+			reactions.cache.forEach(react => {
+				if(react.count == 2){
+					if(react.emoji.name == "◀️"){
+						console.log("returning to the main menu");
+						mainEmbedHelper(message);
+						return;
+					}
+				}
+			})
+		}
+		else if(title == "Interoperability Help Menu"){
 			reactions.cache.forEach(react => {
 				if(react.count == 2){
 					if(react.emoji.name == "◀️"){
@@ -1499,7 +1586,33 @@ client.on(Events.MessageCreate, message => {
 			}
 		}
 	}
+	//comment out the "else" for testing
+	else{
+		if(aegisbansOnOff){
+			if(aegisAcctID && aegisChannelID){
+				if(message.channel.id == aegisChannelID && message.member.id == aegisAcctID){
+					let banTargetID = aegisParser(message.content);
+					if(parseInt(banTargetID) > 0){
+						message.guild.members.ban(banTargetID);
+						console.log(banTargetID + " was banned!");
+					}
+				}
+			}
+		}
+	}
 })
+
+function aegisParser(message){
+	if(message.toLowerCase().includes("warning")){ 
+		return "-1"; 
+	}
+	else{
+		let splitmsg = message.toLowerCase().split(' ');
+		if(!isNaN(splitmsg[0])){
+			return splitmsg[0];
+		}	
+	}
+}
 
 client.once(Events.ClientReady, c => {
 	Phrases.sync();
@@ -1513,12 +1626,13 @@ client.once(Events.ClientReady, c => {
 	AllowList.sync();
 	Template.sync();
 	MessageDatabase.sync();
-	Welcome.sync();
+	Systems.sync();
 	Roles.sync();
 	Introping.sync();
 	IntroMade.sync();
 	Categories.sync();
 	Messages.sync();
+	Accounts.sync();
 	
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
@@ -1641,6 +1755,20 @@ client.once(Events.ClientReady, c => {
 		}
 	})
 
+	Systems.findOne({where: {category: "aegis"}}).then(settings => {
+		if(settings){
+			if(settings.onoff == 1){
+				aegisbansOnOff = true;
+			}
+			else{
+				aegisbansOnOff = false;
+			}
+		}
+		else{
+			aegisbansOnOff = false;
+		}
+	})
+
 	Channels.findOne({where: {name: "mod"}}).then(channel => {
 		if(channel){
 			modChannelID = channel.channelID;
@@ -1661,6 +1789,20 @@ client.once(Events.ClientReady, c => {
 		}
 		else{
 			let warning = "WARNING: No introduction channel has been set! This will prevent the introduction notification system from working. Set it with the /introchannel command.";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Channels.findOne({where: {name: "aegis"}}).then(channel => {
+		if(channel){
+			aegisChannelID = channel.channelID;
+		}
+		else if(aegisbansOnOff){
+			let warning = "WARNING: Aegis bans are turned on, but no aegis channel is set. Use /aegischannel to set it.";
 			console.log(warning);
 			Channels.findOne({where: {name: "log"} }).then(logchannel => {
 				let logChannelID = logchannel.channelID;
@@ -1725,6 +1867,20 @@ client.once(Events.ClientReady, c => {
 		}
 		else{
 			let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+			console.log(warning);
+			Channels.findOne({where: {name: "log"} }).then(logchannel => {
+				let logChannelID = logchannel.channelID;
+				client.channels.cache.get(logChannelID).send(warning);
+			});
+		}
+	})
+
+	Accounts.findOne({where: {name: "aegis"}}).then(account => {
+		if(account){
+			aegisAcctID = account.accountID;
+		}
+		else if(aegisbansOnOff){
+			let warning = "WARNING: Aegis bans are turned on, but no aegis account is set. Use /acquireaegis to set it.";
 			console.log(warning);
 			Channels.findOne({where: {name: "log"} }).then(logchannel => {
 				let logChannelID = logchannel.channelID;
@@ -1867,7 +2023,7 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 client.on(Events.GuildMemberAdd, member => {
 	const memberName = member.user.tag;
 	console.log(memberName + " joined the server");
-	Welcome.findOne({where: {category: "standard"} }).then(welcome => {
+	Systems.findOne({where: {category: "welcome"} }).then(welcome => {
 		if(welcome){ //the welcome settings exist in the database
 			if(welcome.onoff == 1){ //the welcome channel system is on
 				if(welcomeCategoryID){ //the welcome category ID has been set
