@@ -25,12 +25,22 @@ module.exports = {
 		.addUserOption(option => 
 			option.setName('account')
 				.setDescription('the aegis bot account')
-				.setRequired(true)),
+				.setRequired(false))
+		.addStringOption(option => 
+			option.setName('id')
+				.setDescription('the aegis bot account ID')
+				.setRequired(false)),
 	execute(interaction){
 		var aegis = interaction.options.getUser('account');
-		var accountID = aegis.id;
+		var accountID;
+		if(aegis){
+			accountID = aegis.id;
+		}
+		else{
+			accountID = interaction.options.getString('id');
+		}
 		//comment out the line below for testing
-		if(!aegis.bot){ return interaction.reply({content: "Error: this command must be used on a bot account", flags: MessageFlags.Ephemeral }); }
+		//if(!aegis.bot){ return interaction.reply({content: "Error: this command must be used on a bot account", flags: MessageFlags.Ephemeral }); }
 		var bot = 1;
 
 		const affectedRows = Accounts.update({accountID: accountID}, {where: {name: "aegis"} });
