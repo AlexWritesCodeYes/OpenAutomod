@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const Sequelize = require('sequelize');
 
 const sequelize = new Sequelize('database', 'user', 'password', {
@@ -9,7 +9,7 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 	storage: 'database.sqlite',
 });
 
-const Welcome = sequelize.define('welcome', {
+const Systems = sequelize.define('system', {
 	category: {
 		type: Sequelize.STRING,
 		unique: true,
@@ -41,7 +41,7 @@ module.exports = {
 			var msg = "not configured. I will now attempt to turn it on (the default setting). Run the enable or disable subcommands to enable or disable it.";
 			var onoff;
 			try{
-				Welcome.findOne({where: {category: "standard"} }).then(welcome => {
+				Systems.findOne({where: {category: "welcome"} }).then(welcome => {
 					if(welcome){
 						onoff = welcome.onoff;
 					}
@@ -49,11 +49,11 @@ module.exports = {
 						//onoff = 1;
 						message = message + msg;
 						try{
-							Welcome.create({
-								category: "standard",
+							Systems.create({
+								category: "welcome",
 								onoff: '1',
 							});
-							Welcome.sync();
+							Systems.sync();
 						}
 						catch(error){
 							message = "Something went wrong with configuring the welcome channels. Here's the error: " + error;
@@ -83,8 +83,8 @@ module.exports = {
 				onoff = 0;
 			}
 
-			const affectedRows = Welcome.update({onoff: onoff}, {where: {category: "standard"} });
-			Welcome.sync();
+			const affectedRows = Systems.update({onoff: onoff}, {where: {category: "welcome"} });
+			Systems.sync();
 
 			let message = "The creation of welcome channels upon a new user joining is now " + subCommand + "d.";
 			affectedRows.then(rows => {
@@ -93,11 +93,11 @@ module.exports = {
 				}
 				else{
 					try{
-						Welcome.create({
-							category: "standard",
+						Systems.create({
+							category: "welcome",
 							onoff: onoff.toString(),
 						});
-						Welcome.sync();
+						Systems.sync();
 					}
 					catch(error){
 						message = "Something went wrong with configuring the welcome channels. Here's the error: " + error;

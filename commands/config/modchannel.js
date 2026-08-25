@@ -1,4 +1,4 @@
-const { ChannelType, SlashCommandBuilder } = require('discord.js');
+const { ChannelType, SlashCommandBuilder, MessageFlags } = require('discord.js');
 const Sequelize = require('sequelize');
 
 const sequelize = new Sequelize('database', 'user', 'password', {
