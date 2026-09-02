@@ -40,7 +40,7 @@ module.exports = {
 			accountID = interaction.options.getString('id');
 		}
 		//comment out the line below for testing
-		//if(!aegis.bot){ return interaction.reply({content: "Error: this command must be used on a bot account", flags: MessageFlags.Ephemeral }); }
+		if(!aegis.bot){ return interaction.reply({content: "Error: this command must be used on a bot account", flags: MessageFlags.Ephemeral }); }
 		var bot = 1;
 
 		const affectedRows = Accounts.update({accountID: accountID}, {where: {name: "aegis"} });
