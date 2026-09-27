@@ -411,9 +411,9 @@ client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
 
 	const cmdUser = interaction.member;
-	if(!cmdUser.permissions.has(PermissionsBitField.Flags.Administrator)){
-		return interaction.reply({content: "You shouldn't be able to use this bot. Please ping an admin to fix this.", ephemeral: false});
-	}
+	//if(!cmdUser.permissions.has(PermissionsBitField.Flags.Administrator)){
+	//	return interaction.reply({content: "You shouldn't be able to use this bot. Please ping an admin to fix this.", ephemeral: false});
+	//}
 
 	if(interaction.isButton()){
 		if(interaction.customId.toString().slice(0, 11) === 'yes_button-'){
@@ -1144,6 +1144,7 @@ async function messageReactionEmbedHelper(message){
 	}
 }
 
+//this is specifically for managing the react-based navigation on the help menu
 client.on(Events.MessageReactionAdd, async (message, reaction, user) => {
 	if(message.partial){
 		message.fetch().then(fullMessage => {
@@ -1242,6 +1243,7 @@ function phraseFinder(wordList, phrase, regex){
 	}
 }
 
+//this parses every message that gets posted and runs the various moderation checks on them that are configured 
 client.on(Events.MessageCreate, message => {
 	if(!message.author.bot){ //dont process the message if a bot posted it
 		if(intropingOnOff){ //the intro ping system is on
@@ -1614,6 +1616,7 @@ function aegisParser(message){
 	}
 }
 
+//run once when the bot starts up
 client.once(Events.ClientReady, c => {
 	Phrases.sync();
 	Channels.sync();
@@ -1634,6 +1637,8 @@ client.once(Events.ClientReady, c => {
 	Messages.sync();
 	Accounts.sync();
 	
+	//make sure all the local lists and variables being checked against are current with the database
+	//this is basically what the rest of this function does
 	console.log("updating local lists");
 	phrasesBlackList = new Set();
 	mentionBlackList = new Set();
@@ -1988,6 +1993,11 @@ function nameHandler(member){
 	}
 }
 
+//this function does several things upon a member being updated (name changed, joined the server, gained a role)
+//1: checks if their username or tag is on the blacklist (and whitelist)
+//2: checks if they're a new member or an existing member (the entryRole is at the top of the role list by default, so this is a "lazy" check)
+//3: if they were a new member but have now gained entry to the server by gaining the entryRole, remove them from the appropriate database table
+//the /entryrole command determines entryRoleID
 client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	nameHandler(oldMember);
 	nameHandler(newMember);
@@ -2020,12 +2030,16 @@ client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
 	}
 })
 
+//the /welcomesettings command controls what this function does
+//this function is responsible for creating a "welcome channel" (a channel only the new person and the admins can see) upon them joining the server
+//assuming all of the welcome settings have been configured, that is
 client.on(Events.GuildMemberAdd, member => {
 	const memberName = member.user.tag;
 	console.log(memberName + " joined the server");
 	Systems.findOne({where: {category: "welcome"} }).then(welcome => {
 		if(welcome){ //the welcome settings exist in the database
 			if(welcome.onoff == 1){ //the welcome channel system is on
+				let welcomeWarning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
 				if(welcomeCategoryID){ //the welcome category ID has been set
 					member.guild.channels.fetch(welcomeCategoryID).then(category => {
 						if(category){ //the welcome category ID matches that of an existing category
@@ -2053,7 +2067,7 @@ client.on(Events.GuildMemberAdd, member => {
 									channel.send(welcomeMessage);
 								}
 								else{
-									let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+									let warning = welcomeWarning;
 									console.log(warning);
 									Channels.findOne({where: {name: "log"} }).then(logchannel => {
 										let logChannelID = logchannel.channelID;
@@ -2096,7 +2110,7 @@ client.on(Events.GuildMemberAdd, member => {
 									channel.send(welcomeMessage);
 								}
 								else{
-									let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+									let warning = welcomeWarning;
 									console.log(warning);
 									Channels.findOne({where: {name: "log"} }).then(logchannel => {
 										let logChannelID = logchannel.channelID;
@@ -2135,7 +2149,7 @@ client.on(Events.GuildMemberAdd, member => {
 							channel.send(welcomeMessage);
 						}
 						else{
-							let warning = "WARNING: No welcome message has been set, so no welcome message will be posted in the welcome channels. Set it with /messages welcome";
+							let warning = welcomeWarning;
 							console.log(warning);
 							Channels.findOne({where: {name: "log"} }).then(logchannel => {
 								let logChannelID = logchannel.channelID;
@@ -2159,6 +2173,8 @@ client.on(Events.GuildMemberAdd, member => {
 	nameHandler(member); //process the new member's name to make sure it complies with the name blocker settings
 })
 
+//clear anyone who leaves from the intro database if they're in it
+//this is just in case someone leaves after making an intro but before being admitted
 client.on(Events.GuildMemberRemove, member => {
 	IntroMade.findOne({where: {userID: member.id}}).then(introEntry => {
 		if(introEntry){
